@@ -70,7 +70,11 @@ class HealthResponse(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    urls: list[str] = Field(min_length=1, max_length=20)
+    # Hard schema ceiling, well above the default INGEST_MAX_URLS=10 - the
+    # real, configurable limit is enforced in the route via settings.ingest_max_urls;
+    # this is just a sanity bound so an operator can raise INGEST_MAX_URLS
+    # (e.g. for local bulk publishing) without being silently capped here.
+    urls: list[str] = Field(min_length=1, max_length=100)
 
 
 class IngestResultItem(BaseModel):
