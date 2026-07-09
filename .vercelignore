@@ -2,6 +2,7 @@
 tests
 docs
 scripts
-municipal-bylaws-skill
+postman
+local_agent
 .pytest_cache
 requirements-dev.txt

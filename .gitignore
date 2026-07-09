@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+.env.agent
 .venv/
 venv/
 .vercel/

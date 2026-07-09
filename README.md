@@ -35,8 +35,20 @@ scripts/        crawl_and_seed_admin_code.py, seed_all_health_code.py, generate_
 tests/          parser + ingestion + API + rate-limit + section/related/topic-filter tests (fake in-memory Mongo)
 docs/           architecture, API reference, deployment, data source, COVERAGE.md (generated)
 postman/        Postman collection + environments for testing the deployed API
+local_agent/    local-only chat-loop agent simulating a real caller of this skill (never deployed - see below)
 SKILL.md        agent-facing API reference (endpoints, curl, composing a final answer, usage steps)
 ```
+
+## Local agent simulator
+
+[`local_agent/`](./local_agent/) is a small, interactive chat-loop tool that plays the role of "an autonomous agent" invoking this skill exactly as `SKILL.md` describes: it reads a plain-English question, asks Claude Code (via the `claude` CLI you're already logged into - no separate API key needed) to decide which endpoint to call, calls the real API, and asks Claude to compose the final `{answer, sources, reasoning}`. It's local-only and excluded from the Vercel deployment ([`.vercelignore`](./.vercelignore)) - the deployed service itself never calls an LLM.
+
+```bash
+uvicorn app.main:app --reload      # in one terminal
+python -m local_agent.cli           # in another
+```
+
+See [local_agent/README.md](./local_agent/README.md) for architecture, options, and its own test suite (`python -m pytest local_agent/tests -v`).
 
 ## Quick start
 
@@ -150,3 +162,4 @@ This file covers quick-start and a high-level summary. Everything else lives in 
 | [docs/DATA_SOURCE.md](./docs/DATA_SOURCE.md) | Where the law text comes from, licensing, PDF/HTML parsing quirks discovered during ingestion, and known limitations (keyword vs. semantic search, coincidental keyword matches) |
 | [docs/COVERAGE.md](./docs/COVERAGE.md) | Exact ingested coverage (every title/chapter/subchapter/article), generated live from MongoDB |
 | [postman/README.md](./postman/README.md) | Postman collection for testing the deployed API — import instructions, Newman CLI usage, why the ingest/rate-limit folders are manual-only |
+| [local_agent/README.md](./local_agent/README.md) | Local-only chat-loop agent that simulates a real caller of this skill (routes questions via the `claude` CLI, calls the real API, composes the final answer) — architecture, how to run it, and its own test suite |
