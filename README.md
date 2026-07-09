@@ -1,6 +1,6 @@
 # Municipal Legal Intelligence Service
 
-A lightweight FastAPI service that indexes real NYC municipal law text in MongoDB and exposes deterministic, citation-backed retrieval — section search, exact lookup, cross-reference resolution, and penalty/permit filtering — for consumption by an autonomous agent (via `municipal-bylaws-skill`, a Claude Agent Skill, or any other agent/chatbot). Built for the MIT Hackathon.
+A lightweight FastAPI service that indexes real NYC municipal law text in MongoDB and exposes deterministic, citation-backed retrieval — section search, exact lookup, cross-reference resolution, and penalty/permit filtering — for consumption by any autonomous agent or chatbot that calls this API directly (see `SKILL.md`). Built for the MIT Hackathon.
 
 Positioning: agent tool calls return structured facts with citations and mechanical `reasoning`, not "search → 14 PDFs, good luck." The backend never calls an LLM and never fabricates an answer — see [SKILL.md](./SKILL.md) for exactly how a calling agent should compose its final response from what this API returns.
 
@@ -21,7 +21,6 @@ api/index.py    Vercel entrypoint (re-exports app.main:app)
 scripts/        seed_admin_code.py, seed_health_code.py - ingest both sources into MongoDB
 tests/          parser + ingestion + API + rate-limit + section/related/topic-filter tests (fake in-memory Mongo)
 docs/           architecture, API reference, deployment, data source
-municipal-bylaws-skill/   the Claude Agent Skill (SKILL.md + CLI) that calls this API
 SKILL.md        agent-facing API reference (endpoints, curl, composing a final answer, usage steps)
 ```
 

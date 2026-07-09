@@ -137,7 +137,6 @@ api/index.py            Vercel entrypoint (re-exports app.main:app)
 scripts/
   seed_admin_code.py    ingest Title 24 Ch. 2 (Noise Control) into MongoDB
   seed_health_code.py   ingest Health Code Article 161 (Animals) into MongoDB
-municipal-bylaws-skill/   the Claude Agent Skill that calls this API
 tests/                   parser + ingestion + API + rate-limit + section/related/topic-filter tests, run against a fake Mongo
 docs/                    this folder
 ```
