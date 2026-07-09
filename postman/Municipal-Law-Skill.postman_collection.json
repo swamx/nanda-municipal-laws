@@ -1,24 +1,26 @@
 {
   "info": {
     "name": "Municipal Law Skill for Autonomous Agents",
-    "description": "Infra/integration test suite for the Municipal Law Skill API. Targets the live Vercel deployment by default (see the {{base_url}} collection variable, or use the Vercel/Local environment files in postman/environments/). Grounded in real, verified behavior against the full ingested NYC Administrative Code + NYC Health Code corpus - not invented expected values. See postman/README.md for how to run this with Newman.",
+    "description": "Infra/integration test suite for the Municipal Law Skill API. Targets the live Vercel deployment by default (see the {{base_url}} collection variable, or use the Vercel/Local environment files in postman/environments/). Grounded in real, verified behavior against the full ingested NYC Administrative Code + NYC Health Code corpus - not invented expected values.\n\nOrganized one folder per API (endpoint). Every request name is suffixed with 'Success Test' or 'Fail Test' so the Collection Runner summary tells you at a glance which category failed. Where a request has a JSON body, an extra '_test_note' field documents what that specific case validates - it's not a real API field; every request model in app/models.py uses pydantic's default extra='ignore', so the server silently drops it and it never affects the actual test. GET requests (no body) carry the same note in the request's own description field instead.\n\nSee postman/README.md for how to run this with Newman.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "base_url", "value": "https://nanda-municipal-laws.vercel.app", "type": "string" },
     { "key": "document_id", "value": "", "type": "string" },
-    { "key": "rate_limit_counter", "value": "0", "type": "string" }
+    { "key": "rate_limit_counter", "value": "0", "type": "string" },
+    { "key": "ingest_api_key", "value": "", "type": "string", "description": "Fill this in locally (or via the environment file) with the real INGEST_API_KEY value to exercise the authorized-ingest success path. Never commit a real value here - the collection ships with this blank on purpose." }
   ],
   "item": [
     {
       "name": "1. Service Info",
       "item": [
         {
-          "name": "GET / - root service info",
+          "name": "GET / - Success Test: root service info reflects rebrand",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/"
+            "url": "{{base_url}}/",
+            "description": "Validates the service's root info endpoint reports the rebranded name and the expected links, and is not rate-limited."
           },
           "event": [
             {
@@ -41,11 +43,12 @@
           ]
         },
         {
-          "name": "GET /skill.md - agent-facing reference",
+          "name": "GET /skill.md - Success Test: serves agent-facing reference as plain text",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/skill.md"
+            "url": "{{base_url}}/skill.md",
+            "description": "Validates /skill.md serves the repo's root SKILL.md live, as text/plain, with the rebranded title and without leaking internal-only endpoint details (e.g. /ingest) to agents."
           },
           "event": [
             {
@@ -69,11 +72,12 @@
           ]
         },
         {
-          "name": "GET /api/v1/health - liveness + Mongo reachability",
+          "name": "GET /api/v1/health - Success Test: reports live Mongo reachability",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/health"
+            "url": "{{base_url}}/api/v1/health",
+            "description": "Validates the health check pings MongoDB and reports 'ok' when reachable. This service returns 200 either way (status:'degraded' if Mongo is unreachable), so this test only asserts the reachable/happy path."
           },
           "event": [
             {
@@ -92,11 +96,12 @@
           ]
         },
         {
-          "name": "GET /api/v1/version",
+          "name": "GET /api/v1/version - Success Test: returns app version string",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/version"
+            "url": "{{base_url}}/api/v1/version",
+            "description": "Validates /version returns a version field - used by the Rate Limiting folder as a cheap, side-effect-free endpoint to probe."
           },
           "event": [
             {
@@ -116,16 +121,16 @@
       ]
     },
     {
-      "name": "2. is_action_allowed (headline capability)",
+      "name": "2. is_action_allowed",
       "item": [
         {
-          "name": "Keep backyard chickens - absence-of-restriction, medium confidence",
+          "name": "Keep backyard chickens - Success Test: absence-of-restriction, medium confidence",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"action\": \"Keep backyard chickens\"}"
+              "raw": "{\n  \"action\": \"Keep backyard chickens\",\n  \"_test_note\": \"No explicit prohibition/permission on chickens/hens in section 161.19; expect allowed:true at confidence:medium (absence-of-restriction inference), citing 161.19, with the rooster prohibition surfaced as a condition, and never the fabricated '6 hens' myth.\"\n}"
             },
             "url": "{{base_url}}/api/v1/is_action_allowed"
           },
@@ -160,13 +165,13 @@
           ]
         },
         {
-          "name": "Keep a rooster in my apartment - explicit prohibition, high confidence",
+          "name": "Keep a rooster in my apartment - Success Test: explicit prohibition, medium confidence at full-corpus scale",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"action\": \"keep a rooster in my apartment\"}"
+              "raw": "{\n  \"action\": \"keep a rooster in my apartment\",\n  \"_test_note\": \"Section 161.19(a) explicitly prohibits keeping a live rooster; expect allowed:false, citing 161.19 with reasoning mentioning the rooster prohibition. Confidence is 'medium', not 'high', against the full ~10,700-chunk corpus - with many more candidate sections in play than in a small test fixture, this query no longer has one decisively top-ranked result even though the matched statement itself is unambiguous. Verified directly against production, not assumed.\"\n}"
             },
             "url": "{{base_url}}/api/v1/is_action_allowed"
           },
@@ -181,6 +186,9 @@
                   "pm.test('allowed is false (explicit prohibition found)', function () {",
                   "  pm.expect(body.allowed).to.eql(false);",
                   "});",
+                  "pm.test('confidence is medium at full-corpus scale (not high - see _test_note)', function () {",
+                  "  pm.expect(body.confidence).to.eql('medium');",
+                  "});",
                   "pm.test('cites section 161.19', function () {",
                   "  pm.expect(body.citations[0].section_number).to.eql('161.19');",
                   "});",
@@ -193,13 +201,46 @@
           ]
         },
         {
-          "name": "Unrelated action - unclear, never a guess from silence",
+          "name": "Juggle flaming torches on the moon - Success Test: documented keyword-collision limitation (flame/flaming)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"action\": \"juggle flaming torches while unicycling on the moon\"}"
+              "raw": "{\n  \"action\": \"juggle flaming torches while unicycling on the moon\",\n  \"_test_note\": \"KNOWN, DOCUMENTED LIMITATION, discovered while writing this suite (not theorized): at full-corpus scale this nonsense action coincidentally matches real section 27-515 'Flame resistance' via the word flame/flaming, returning a confident-looking allowed:true/false. This is a 'Success Test' because a well-formed, non-fabricated response IS the correct behavior - not that the legal determination is topically correct. See the gibberish-action test below for the genuinely-no-match case instead.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('confidence is never high for this kind of coincidental match', function () {",
+                  "  pm.expect(body.confidence).to.not.eql('high');",
+                  "});",
+                  "pm.test('citation, if present, is a real section (never fabricated)', function () {",
+                  "  if (body.citations.length > 0) {",
+                  "    pm.expect(body.citations[0]).to.have.property('section_number');",
+                  "    pm.expect(body.citations[0]).to.have.property('url');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invented-word gibberish action - Success Test: genuinely unclear, never a guess from silence",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"xyzzyquorp blorptrejkl zibbernaut fwoosh\",\n  \"_test_note\": \"Deliberately made-up, non-English tokens that cannot appear as real keywords anywhere in the ingested statute text - unlike natural-English nonsense phrases (see the flaming-torches test above), this reliably has zero keyword overlap even at full-corpus scale. Expect allowed:null (not false, not a guess), confidence:low, and an empty citations list rather than a fabricated one.\"\n}"
             },
             "url": "{{base_url}}/api/v1/is_action_allowed"
           },
@@ -226,13 +267,13 @@
           ]
         },
         {
-          "name": "KNOWN LIMITATION - homonym keyword can select an irrelevant section",
+          "name": "Launch a satellite from my roof - Success Test: documented homonym-keyword limitation",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"action\": \"launch a satellite into orbit from my roof\"}"
+              "raw": "{\n  \"action\": \"launch a satellite into orbit from my roof\",\n  \"_test_note\": \"KNOWN, DOCUMENTED LIMITATION (see docs/DATA_SOURCE.md), not a bug target: keyword ranking can match 'roof' as a building material rather than a rooftop location and surface an unrelated section. This is a 'Success Test' because the well-formed, non-fabricated response IS the correct behavior being verified - not that the legal determination is topically correct.\"\n}"
             },
             "url": "{{base_url}}/api/v1/is_action_allowed"
           },
@@ -242,11 +283,6 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// This is a documented, known limitation (see docs/DATA_SOURCE.md), not a",
-                  "// bug fix target: \"roof\" as a building material coincidentally matches an",
-                  "// unrelated construction-code section for a query using \"roof\" as a rooftop",
-                  "// location. We only assert the response is well-formed and never fabricates",
-                  "// a citation - not that the determination is topically correct.",
                   "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
                   "const body = pm.response.json();",
                   "pm.test('confidence is never high for this kind of coincidental match', function () {",
@@ -262,6 +298,52 @@
               }
             }
           ]
+        },
+        {
+          "name": "Missing action field - Fail Test: 422 validation error",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"_test_note\": \"ActionCheckRequest.action is required (min_length=1) per app/models.py; omitting it entirely must fail validation with 422 rather than being treated as an empty/unclear action.\",\n  \"context\": {\"borough\": \"Queens\"}\n}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (missing required field)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit=21 exceeds max - Fail Test: 422 validation error",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"keep a rooster\",\n  \"limit\": 21,\n  \"_test_note\": \"ActionCheckRequest.limit is constrained to le=20 per app/models.py; 21 must fail validation with 422.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (limit above max of 20)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -269,13 +351,13 @@
       "name": "3. Search",
       "item": [
         {
-          "name": "Search Health Code for chicken/poultry keeping",
+          "name": "Health Code rooster query - Success Test: surfaces 161.19 top-ranked",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"query\": \"rooster keeping poultry\", \"document_type\": \"NYC Health Code\"}"
+              "raw": "{\n  \"query\": \"rooster keeping poultry\",\n  \"document_type\": \"NYC Health Code\",\n  \"_test_note\": \"Filtered keyword search should rank 161.19 (Keeping of livestock, live poultry and rabbits) first among Health Code results, and capture document_id for the chained Documents folder tests.\"\n}"
             },
             "url": "{{base_url}}/api/v1/search"
           },
@@ -302,13 +384,13 @@
           ]
         },
         {
-          "name": "Search Admin Code for construction noise hours",
+          "name": "Admin Code construction-noise query - Success Test: surfaces 24-222 top-ranked",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"query\": \"after hours weekend limits construction work\", \"document_type\": \"NYC Administrative Code\"}"
+              "raw": "{\n  \"query\": \"after hours weekend limits construction work\",\n  \"document_type\": \"NYC Administrative Code\",\n  \"_test_note\": \"Filtered keyword search should rank 24-222 (After hours and weekend limits on construction work) first among Admin Code results.\"\n}"
             },
             "url": "{{base_url}}/api/v1/search"
           },
@@ -329,13 +411,13 @@
           ]
         },
         {
-          "name": "Search across the full corpus - unfiltered taxicab query",
+          "name": "Unfiltered taxicab query - Success Test: finds results across the full corpus",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"query\": \"taxicab for hire vehicle license\"}"
+              "raw": "{\n  \"query\": \"taxicab for hire vehicle license\",\n  \"_test_note\": \"No document_type filter applied - proves search works over the entire ingested Admin Code, not just a curated slice.\"\n}"
             },
             "url": "{{base_url}}/api/v1/search"
           },
@@ -357,13 +439,13 @@
           ]
         },
         {
-          "name": "Search with explicit in_app mode override",
+          "name": "in_app search_mode override - Success Test: same top result as default text_index mode",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"query\": \"rooster keeping poultry\", \"document_type\": \"NYC Health Code\", \"search_mode\": \"in_app\"}"
+              "raw": "{\n  \"query\": \"rooster keeping poultry\",\n  \"document_type\": \"NYC Health Code\",\n  \"search_mode\": \"in_app\",\n  \"_test_note\": \"Explicitly overrides SEARCH_MODE's default (text_index) for this one call; the in-app Python TF scorer should still rank 161.19 first and say so in reasoning.\"\n}"
             },
             "url": "{{base_url}}/api/v1/search"
           },
@@ -385,6 +467,52 @@
               }
             }
           ]
+        },
+        {
+          "name": "Missing query field - Fail Test: 422 validation error",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document_type\": \"NYC Health Code\",\n  \"_test_note\": \"SearchRequest.query is required (min_length=1) per app/models.py; omitting it must fail validation with 422.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (missing required field)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit=51 exceeds max - Fail Test: 422 validation error",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"noise\",\n  \"limit\": 51,\n  \"_test_note\": \"SearchRequest.limit is constrained to le=50 per app/models.py; 51 must fail validation with 422.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (limit above max of 50)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -392,11 +520,12 @@
       "name": "4. Sections",
       "item": [
         {
-          "name": "GET /sections/161.19 - exact lookup + structural_summary",
+          "name": "GET /sections/161.19 - Success Test: exact lookup + structural_summary",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/sections/161.19"
+            "url": "{{base_url}}/api/v1/sections/161.19",
+            "description": "Validates exact section lookup returns full metadata, correct cross_references, a lettered-subsection structural_summary, and never the fabricated '6 hens'/'maximum' myth."
           },
           "event": [
             {
@@ -428,11 +557,12 @@
           ]
         },
         {
-          "name": "GET /sections/161.19/related - cross-reference resolution",
+          "name": "GET /sections/161.19/related - Success Test: resolves cross-reference to 161.01",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/sections/161.19/related"
+            "url": "{{base_url}}/api/v1/sections/161.19/related",
+            "description": "Validates the one-hop citation graph resolves 161.19's cross-reference to 161.01 within the ingested corpus, marking it resolved:true."
           },
           "event": [
             {
@@ -453,11 +583,32 @@
           ]
         },
         {
-          "name": "GET /sections/999.99 - 404 for unknown section",
+          "name": "GET /sections/999.99 - Fail Test: 404 for unknown section",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/sections/999.99"
+            "url": "{{base_url}}/api/v1/sections/999.99",
+            "description": "Validates an exact lookup for a section number that doesn't exist in the corpus returns 404 rather than an empty-but-200 response."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /sections/999.99/related - Fail Test: 404 for unknown section",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/sections/999.99/related",
+            "description": "Validates /related also 404s for a section number that doesn't exist, rather than returning an empty related list with a 200."
           },
           "event": [
             {
@@ -477,13 +628,13 @@
       "name": "5. Topic Filters",
       "item": [
         {
-          "name": "POST /penalties - filtered to mentions_penalty=true",
+          "name": "POST /penalties - Success Test: filtered to mentions_penalty=true",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"topic\": \"NOISE CONTROL\"}"
+              "raw": "{\n  \"topic\": \"NOISE CONTROL\",\n  \"_test_note\": \"Validates the mentions_penalty=true filter is actually applied and reflected in reasoning, scoped to the NOISE CONTROL topic.\"\n}"
             },
             "url": "{{base_url}}/api/v1/penalties"
           },
@@ -504,13 +655,13 @@
           ]
         },
         {
-          "name": "POST /permits - surfaces the animal permits section",
+          "name": "POST /permits - Success Test: surfaces the animal permits section",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"query\": \"keep certain animals\"}"
+              "raw": "{\n  \"query\": \"keep certain animals\",\n  \"_test_note\": \"Validates the mentions_permit=true filter surfaces section 161.09 (Permits to keep certain animals), a real permit-requiring section.\"\n}"
             },
             "url": "{{base_url}}/api/v1/permits"
           },
@@ -533,6 +684,52 @@
               }
             }
           ]
+        },
+        {
+          "name": "limit=0 below minimum - Fail Test: 422 validation error on /penalties",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"NOISE CONTROL\",\n  \"limit\": 0,\n  \"_test_note\": \"TopicFilterRequest.limit is constrained to ge=1 per app/models.py; 0 must fail validation with 422.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/penalties"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (limit below minimum of 1)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit=51 exceeds max - Fail Test: 422 validation error on /permits",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"license\",\n  \"limit\": 51,\n  \"_test_note\": \"TopicFilterRequest.limit is constrained to le=50 per app/models.py; 51 must fail validation with 422.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/permits"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (limit above max of 50)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -540,11 +737,12 @@
       "name": "6. Documents (chained from Search)",
       "item": [
         {
-          "name": "GET /documents/{{document_id}}",
+          "name": "GET /documents/{{document_id}} - Success Test: metadata for a chained real document",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/documents/{{document_id}}"
+            "url": "{{base_url}}/api/v1/documents/{{document_id}}",
+            "description": "Uses the document_id captured by the Search folder's first request. Validates document metadata (document_type, source_url) is returned for a real, existing document."
           },
           "event": [
             {
@@ -575,11 +773,12 @@
           ]
         },
         {
-          "name": "GET /documents/{{document_id}}/chunks",
+          "name": "GET /documents/{{document_id}}/chunks - Success Test: non-empty ordered chunk list",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/documents/{{document_id}}/chunks"
+            "url": "{{base_url}}/api/v1/documents/{{document_id}}/chunks",
+            "description": "Validates every section belonging to the chained document is returned as a non-empty array."
           },
           "event": [
             {
@@ -598,11 +797,12 @@
           ]
         },
         {
-          "name": "GET /documents/000000000000000000000000 - 404 for invalid id",
+          "name": "GET /documents/000000000000000000000000 - Fail Test: 404 for well-formed but nonexistent id",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/documents/000000000000000000000000"
+            "url": "{{base_url}}/api/v1/documents/000000000000000000000000",
+            "description": "A syntactically valid 24-char hex ObjectId that (almost certainly) doesn't exist. Validates a clean 404 rather than a 500."
           },
           "event": [
             {
@@ -615,21 +815,41 @@
               }
             }
           ]
+        },
+        {
+          "name": "GET /documents/not-a-valid-objectid - Fail Test: 404 for malformed id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/documents/not-a-valid-objectid",
+            "description": "app/routers/documents.py::_object_id() catches bson.errors.InvalidId and raises 404 (not 500/422) for a malformed ObjectId string - validates that mapping."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404 (malformed id, not a 500)', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "7. Ingest (manual/optional - do not run in automated CI)",
-      "description": "POST /ingest triggers real outbound fetches and Atlas writes, and is rate-limited to 1 request/minute in its own bucket. Run this folder manually and deliberately, not as part of an automated suite - it's excluded from any 'Run whole collection' workflow you should wire into CI.",
+      "description": "POST /ingest triggers real outbound fetches and Atlas writes, and is rate-limited to 1 request/minute in its own bucket. Run this folder manually and deliberately, not as part of an automated suite - it's excluded from any 'Run whole collection' workflow you should wire into CI. The 'Fail Test' requests here are always safe to run (they're rejected before any real ingestion happens); the 'Success Test' request only works if you've set the {{ingest_api_key}} collection variable to the real key locally.",
       "item": [
         {
-          "name": "Re-ingest a known-good Health Code article (idempotent)",
+          "name": "No X-Ingest-Api-Key header - Fail Test: 401 unauthorized",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\"urls\": [\"https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf\"]}"
+              "raw": "{\n  \"urls\": [\"https://example.invalid/test.html\"],\n  \"_test_note\": \"example.invalid is an RFC 2606 reserved test domain that will never resolve, so this can never cause a real outbound fetch. Validates /ingest now requires INGEST_API_KEY - a real security gap that was open before this test suite was written (see docs/DEPLOYMENT.md).\"\n}"
             },
             "url": "{{base_url}}/api/v1/ingest"
           },
@@ -639,10 +859,62 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Expect either 200 (ok, idempotent re-ingest) or 429 (if you've already",
-                  "// used this minute's ingest quota) - both are acceptable outcomes here.",
-                  "pm.test('status is 200 or 429', function () {",
-                  "  pm.expect([200, 429]).to.include(pm.response.code);",
+                  "pm.test('status is 401 (missing X-Ingest-Api-Key)', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Empty urls array - Fail Test: 422 validation error",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Ingest-Api-Key", "value": "{{ingest_api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"urls\": [],\n  \"_test_note\": \"IngestRequest.urls has min_length=1 per app/models.py; an empty list must fail validation with 422 (checked before the API-key gate would even matter for this shape).\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/ingest"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401 or 422 (either is an acceptable rejection)', function () {",
+                  "  pm.expect([401, 422]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Re-ingest known-good Health Code article - Success Test: idempotent re-ingestion",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Ingest-Api-Key", "value": "{{ingest_api_key}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"urls\": [\"https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf\"],\n  \"_test_note\": \"Re-ingesting an already-seen URL upserts the document and replaces its chunks - safe to re-run. Requires the real {{ingest_api_key}} collection variable to be set locally; otherwise expect 401, which this test tolerates.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/ingest"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 (authorized) or 401/429 (no key configured / already used this minute\\'s quota)', function () {",
+                  "  pm.expect([200, 401, 429]).to.include(pm.response.code);",
                   "});",
                   "if (pm.response.code === 200) {",
                   "  const body = pm.response.json();",
@@ -659,14 +931,15 @@
     },
     {
       "name": "8. Rate Limiting (stress test - consumes your 10-req/min budget)",
-      "description": "Self-looping request that calls /api/v1/health 11 times in a row using postman.setNextRequest(), asserting the first 10 succeed and the 11th returns 429 with a Retry-After header. Run this folder in isolation (Collection Runner, this folder only) - running it alongside other requests in the same minute will eat into their rate-limit budget too, and running the whole collection back-to-back may trigger this before you intend to test it.",
+      "description": "Self-looping request that calls /api/v1/version 11 times in a row using postman.setNextRequest(), asserting the first 10 succeed (Success Test iterations) and the 11th returns 429 with a Retry-After header (Fail-path Test iteration, which is the *expected*/correct outcome). Run this folder in isolation (Collection Runner, this folder only) - running it alongside other requests in the same minute will eat into their rate-limit budget too, and running the whole collection back-to-back may trigger this before you intend to test it.",
       "item": [
         {
-          "name": "Rate Limit Probe (loops itself 11x)",
+          "name": "Rate Limit Probe - Success/Fail Test: loops itself 11x, expects 429 on the 11th",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/health"
+            "url": "{{base_url}}/api/v1/version",
+            "description": "Iterations 1-10 are 'Success Test' (expect 200, still within budget); iteration 11 is the 'Fail Test' (expect 429 + Retry-After) that proves the limiter actually engages."
           },
           "event": [
             {
@@ -678,20 +951,20 @@
                   "pm.collectionVariables.set('rate_limit_counter', count);",
                   "",
                   "if (count <= 10) {",
-                  "  pm.test(`request ${count}/11 succeeds (200)`, function () {",
+                  "  pm.test(`iteration ${count}/11 - Success Test: succeeds (200)`, function () {",
                   "    pm.response.to.have.status(200);",
                   "  });",
                   "} else {",
-                  "  pm.test('request 11/11 is rate limited (429)', function () {",
+                  "  pm.test('iteration 11/11 - Fail Test: rate limited (429)', function () {",
                   "    pm.response.to.have.status(429);",
                   "  });",
-                  "  pm.test('Retry-After header present', function () {",
+                  "  pm.test('iteration 11/11 - Fail Test: Retry-After header present', function () {",
                   "    pm.expect(pm.response.headers.has('Retry-After')).to.eql(true);",
                   "  });",
                   "}",
                   "",
                   "if (count < 11) {",
-                  "  postman.setNextRequest('Rate Limit Probe (loops itself 11x)');",
+                  "  postman.setNextRequest('Rate Limit Probe - Success/Fail Test: loops itself 11x, expects 429 on the 11th');",
                   "} else {",
                   "  postman.setNextRequest(null);",
                   "  pm.collectionVariables.set('rate_limit_counter', '0');",

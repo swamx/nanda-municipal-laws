@@ -31,7 +31,7 @@ curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/is_action_allowed
 }
 ```
 
-For a prohibited action (`{"action": "keep a rooster in my apartment"}`), the same shape returns `"allowed": false`, `"confidence": "high"`, and cites the actual prohibiting clause in `reasoning`. For an action with no relevant provision found at all, `"allowed": null`, `"citations": []`, `"confidence": "low"` — see Rules below for exactly what each `confidence` level means and a known limitation to watch for.
+For a prohibited action (`{"action": "keep a rooster in my apartment"}`), the same shape returns `"allowed": false` and cites the actual prohibiting clause in `reasoning`. `confidence` for this example is `"medium"` against the full ingested corpus (not `"high"`) — with thousands of candidate sections in play, this specific query no longer has one decisively top-ranked result, even though the matched statement itself is unambiguous; always read `reasoning`, not just `confidence`, to judge how solid a result is. For an action with no relevant provision found at all, `"allowed": null`, `"citations": []`, `"confidence": "low"` — see Rules below for exactly what each `confidence` level means and a known limitation to watch for.
 
 ### `POST /api/v1/search`
 
