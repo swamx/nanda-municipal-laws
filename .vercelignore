@@ -1,0 +1,7 @@
+.venv
+tests
+docs
+scripts
+municipal-bylaws-skill
+.pytest_cache
+requirements-dev.txt
