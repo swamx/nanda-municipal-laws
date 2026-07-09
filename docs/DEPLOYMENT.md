@@ -18,7 +18,7 @@
 | `MONGO_SERVER_SELECTION_TIMEOUT_MS` | no | `5000` | Same |
 | `INGEST_API_KEY` | no | unset (open) | If set, `POST /ingest` requires a matching `X-Ingest-Api-Key` header. **Set this before sharing a public deployment URL** — otherwise anyone can trigger outbound fetches and Atlas writes. |
 | `INGEST_MAX_URLS` | no | `10` | Hard cap on URLs per `/ingest` call, to stay inside the serverless execution budget |
-| `RATE_LIMIT_PER_MINUTE` | no | `10` | Requests/minute per client IP for `/search`, `/documents/*`, `/health`, `/version` |
+| `RATE_LIMIT_PER_MINUTE` | no | `10` | Requests/minute per client IP for `/search`, `/is_action_allowed`, `/sections/*`, `/penalties`, `/permits`, `/documents/*`, `/health`, `/version` |
 | `INGEST_RATE_LIMIT_PER_MINUTE` | no | `1` | Requests/minute per client IP for `/ingest` specifically — its own stricter bucket, since it triggers outbound fetches and Atlas writes |
 | `SEARCH_MODE` | no | `text_index` | `text_index` (native MongoDB `$text`) or `in_app` (Python TF scoring). Overridable per-request via `search_mode` in the request body. |
 | `APP_VERSION` | no | `0.1.0` | Reported by `/` and `/api/v1/version` |

@@ -24,7 +24,7 @@ Infra/integration test suite for the Municipal Law Skill API, targeting the live
 
 ## Running with Newman (CLI)
 
-```
+```bash
 npm i -g newman
 newman run postman/Municipal-Law-Skill.postman_collection.json \
   --folder "1. Service Info" \

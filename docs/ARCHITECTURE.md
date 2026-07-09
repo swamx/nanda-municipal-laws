@@ -6,29 +6,26 @@ A reusable agent capability, not a bespoke chatbot backend: any autonomous agent
 
 ## Data flow
 
-```
-nycadmincode.readthedocs.io           nyc.gov health-code-article{N}.pdf
-   (NYC Admin Code, HTML, CC0)          (NYC Health Code, PDF, first-party)
-            |                                        |
-   fetch (httpx) -> parse                   fetch (httpx) -> extract (pypdf)
-   (BeautifulSoup)                                -> parse (§X.XX headers)
-            |                                        |
-            +-------------------+  +------------------+
-                                 |  |
-                    app/ingestion/loader.py (SourceLoader dispatch)
-                                 |
-                    app/ingestion/{chunker,enrich,pipeline}.py
-                                 |
-                                 v
-                  MongoDB Atlas: mithackathon.dl-laws  (single collection)
-                                 |
-                                 v
-                            FastAPI app (app/)
-                                 |
-   +--------+-----------+------------+-----------+----------+-----------+
-   |        |           |            |           |          |          |
- /search /sections  /sections/   /penalties  /permits  /documents  /health,
-         /{id}      {id}/related                                  /version
+```mermaid
+flowchart TD
+    A["nycadmincode.readthedocs.io<br/>NYC Admin Code (HTML, CC0)"] -->|"httpx.get"| B["parser.py<br/>(BeautifulSoup)"]
+    A2["nyc.gov health-code-article{N}.pdf<br/>NYC Health Code (PDF, first-party)"] -->|"httpx.get"| B2["pdf_fetcher.py -> health_code_parser.py<br/>(pypdf extract + §X.XX regex)"]
+
+    B --> C["app/ingestion/loader.py<br/>SourceLoader dispatch"]
+    B2 --> C
+
+    C --> D["app/ingestion/chunker.py, enrich.py, pipeline.py"]
+    D --> E[("MongoDB Atlas<br/>mithackathon.dl-laws<br/>(single collection)")]
+    E --> F["FastAPI app (app/)"]
+
+    F --> G1["POST /search"]
+    F --> G2["POST /is_action_allowed"]
+    F --> G3["GET /sections/{id}"]
+    F --> G4["GET /sections/{id}/related"]
+    F --> G5["POST /penalties"]
+    F --> G6["POST /permits"]
+    F --> G7["GET /documents/{id}"]
+    F --> G8["GET /health, /version"]
 ```
 
 Ingestion is on-demand and bounded (`POST /ingest`, max `INGEST_MAX_URLS` pages per call), not a background job — this runs as a Vercel serverless function with a hard execution-time ceiling, so there's no long-lived worker to schedule crawls.
@@ -94,6 +91,17 @@ Earlier in this project, the Atlas role couldn't grant `createIndex`, so search 
 - **`"text_index"` (default)**: native MongoDB `$text`/`textScore` — the database does the filtering and ranking, so it scales to a large corpus without pulling every candidate into the API process.
 - **`"in_app"`**: the original `app/search_scoring.py` TF-style scorer — fetches every filter-matching chunk and scores in Python. No index dependency, but degrades as the corpus grows; kept as a documented, selectable fallback rather than deleted, since it's what let this project work before `createIndex` was confirmed available, and it's what the `text_index` path automatically falls back to (catching `OperationFailure`) if the text index is ever unavailable again.
 
+```mermaid
+flowchart TD
+    A["search_chunks(query, filters, search_mode)"] --> B{"search_mode?"}
+    B -- "text_index (default)" --> C["_search_via_text_index()<br/>native $text / textScore"]
+    C --> D{"OperationFailure?<br/>(e.g. text index unavailable)"}
+    D -- "yes" --> E["fall back to _search_via_in_app_scoring()"]
+    D -- "no" --> F["ranked results"]
+    B -- "in_app" --> E
+    E --> F
+```
+
 `app/search_scoring.py` (and the test suite's `$text` emulation in `tests/fake_mongo.py`) match on word boundaries, not plain substrings — a real bug caught while building `/is_action_allowed`: naive `str.count()` matched "dance" inside "accor**dance**" and would have matched "fine" inside "de**fine**d" (the same class of bug already fixed once in `app/ingestion/enrich.py`'s `mentions_penalty`/`mentions_permit`, and evidently not yet applied everywhere it should have been).
 
 Both modes are implemented in one place (`_search_via_text_index`/`_search_via_in_app_scoring` in `app/retrieval.py`), used identically by `/search`, `/penalties`, and `/permits`, so the retrieval logic isn't duplicated per endpoint. Filters include `document_type`/`agency`/`topic`/`title_num`/`chapter_num`, plus `mentions_penalty`/`mentions_permit` for the topic-filter endpoints — applied identically regardless of which scoring mode is active.
@@ -117,6 +125,20 @@ The headline capability, positioning this as a reusable agent skill ("determine 
 3. Fetch the top-matching section's full text and split it into subsections (the same `app/text_structure.py::split_subsections()` used by `/sections/{id}`'s `structural_summary`).
 4. Classify each subsection as `prohibition`/`permission`/`neutral` via a fixed, word-boundary-matched keyword list (`app/action_rules.py::classify_subsection()` — the same approach as `mentions_penalty`/`mentions_permit`), and check whether it shares a specific keyword with the action.
 
+```mermaid
+flowchart TD
+    A["action text, e.g. 'Keep backyard chickens'"] --> B["filter_specific_keywords(extract_keywords(action))<br/>+ expand_query_with_synonyms"]
+    B --> C["search_chunks() - same retrieval as /search"]
+    C --> D{"any candidate section found?"}
+    D -- "no / zero score" --> E["allowed: null, confidence: low<br/>citations: []"]
+    D -- "yes" --> F["fetch top section's full text<br/>split_subsections()"]
+    F --> G["classify_subsection() per subsection:<br/>prohibition / permission / neutral"]
+    G --> H{"a subsection shares a keyword<br/>with the action AND is a<br/>prohibition or permission?"}
+    H -- "prohibition matched" --> I["allowed: false<br/>confidence: high"]
+    H -- "permission matched" --> J["allowed: true<br/>confidence: high"]
+    H -- "no explicit match<br/>(absence-of-restriction)" --> K["allowed: true<br/>confidence: medium<br/>unrelated prohibitions -> conditions"]
+```
+
 `allowed` is only ever `true`/`false` when a keyword-matched, explicit prohibition or permission statement was found — never inferred from silence. When the closest-matching section contains no explicit statement about the action's own subject, the response still returns `allowed: true` but capped at `confidence: "medium"` (an absence-of-restriction inference is a materially weaker claim than an affirmative statement) and surfaces any *unrelated* prohibitions found in the same section as `conditions` — this is precisely how "keep backyard chickens" surfaces the rooster prohibition as a caveat without incorrectly citing it as a blocking rule for hens specifically.
 
 **A known, deliberately undocumented-not-hidden limitation**: ranking by shared keywords means a query overlapping an unrelated section on one common word can produce a misleadingly confident-looking result. Found empirically while testing: a nonsense action ("launch a satellite from my roof") matched an unrelated building-construction section on the word "roof" (meaning roofing material, not rooftop location) and returned `allowed: false` citing real but off-topic text; similarly "party" (a legal term for a party to an action) coincidentally matched an unrelated section for a query about a celebration. The citation and matched text are always real — this isn't fabrication — but the *selected section* can be wrong for homonym/ambiguous terms, which is exactly the kind of disambiguation that requires semantic understanding this deliberately-non-LLM design doesn't attempt. Pinned by `tests/test_is_action_allowed.py::test_known_limitation_coincidental_common_word_can_still_match` and documented in `SKILL.md`'s Rules section (always read `reasoning` before trusting `allowed`) rather than silently patched with a threshold that would risk breaking the correct cases.
@@ -126,6 +148,28 @@ The headline capability, positioning this as a reusable agent skill ("determine 
 Vercel serverless functions don't share process memory across invocations or cold starts, so a naive in-process rate limiter (a `dict` of counters) would not enforce a real per-client limit once traffic spans more than one warm instance. `app/rate_limit.py` implements two FastAPI dependencies backed by the same mechanism: `rate_limiter` (applied to `search`, `is_action_allowed`, `sections`, `penalties`, `permits`, `documents`, and `health` routers, default `RATE_LIMIT_PER_MINUTE` = 10) and `ingest_rate_limiter` (applied only to the `ingest` router, default `INGEST_RATE_LIMIT_PER_MINUTE` = 1 — much stricter, since that endpoint triggers outbound fetches and Atlas writes rather than just reads). Both call a shared `_check_rate_limit(request, db, scope, limit)` helper that increments a per-minute counter document in `dl-laws` (`type: "ratelimit"`, keyed by `scope` + `client_id` + `window_start`) via an atomic `find_one_and_update` with `$inc`, and rejects with `429` once the count for that scope exceeds its limit in the current 60-second window. The `scope` field keeps the two limiters' counters independent, so a client hitting `/ingest` once doesn't eat into their `/search` budget or vice versa. Client identity is best-effort: the first IP in `X-Forwarded-For` (Vercel's proxy header), falling back to the raw socket address.
 
 It **fails open**: if Mongo is unreachable, the limiter logs a warning and lets the request through rather than taking the whole API down over a rate-limiting hiccup. Stale rate-limit documents are cleaned up opportunistically (a small random-chance `delete_many` on old windows) rather than via a TTL index, since TTL indexes also require `createIndex`.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Dep as rate_limiter / ingest_rate_limiter<br/>(FastAPI Depends)
+    participant Mongo as dl-laws<br/>(type: "ratelimit")
+    participant Route as Route handler
+
+    Client->>Dep: request (X-Forwarded-For -> client_id)
+    Dep->>Mongo: find_one_and_update(scope, client_id, window_start, $inc count)
+    alt Mongo reachable and count <= limit
+        Mongo-->>Dep: updated count
+        Dep->>Route: allow
+        Route-->>Client: 200 + response body
+    else Mongo reachable and count > limit
+        Mongo-->>Dep: updated count
+        Dep-->>Client: 429 + Retry-After
+    else Mongo unreachable
+        Dep-->>Route: fail open (log warning, allow)
+        Route-->>Client: 200 + response body
+    end
+```
 
 ## Why a FastAPI dependency, not ASGI middleware, for rate limiting and auth
 
@@ -137,7 +181,7 @@ Both rate limiters and the `/ingest` API-key gate are implemented as FastAPI `De
 
 ## Directory layout
 
-```
+```text
 app/
   main.py              FastAPI app, middleware, routers, global exception handler
   config.py            pydantic-settings: all env-configurable behavior

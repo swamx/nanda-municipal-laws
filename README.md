@@ -14,14 +14,27 @@ Design:
 
 📖 **Full docs:** [docs/](./docs/) — [architecture](./docs/ARCHITECTURE.md), [API reference](./docs/API.md), [deployment](./docs/DEPLOYMENT.md), [data source](./docs/DATA_SOURCE.md). Agent-facing quick reference: [SKILL.md](./SKILL.md).
 
+## How it works
+
+```mermaid
+flowchart LR
+    Agent["Autonomous agent"] -->|"POST /api/v1/is_action_allowed<br/>{action: 'Keep backyard chickens'}"| API["Municipal Law Skill<br/>(FastAPI, no LLM)"]
+    API --> DB[("MongoDB Atlas<br/>full NYC Admin Code +<br/>full NYC Health Code")]
+    DB --> API
+    API -->|"{allowed, conditions,<br/>citations, reasoning, confidence}"| Agent
+```
+
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full ingestion-to-API data flow and decision-logic diagrams.
+
 ## Project layout
 
-```
+```text
 app/            FastAPI app: config, db, rate limiting, retrieval, models, routers, ingestion pipeline
 api/index.py    Vercel entrypoint (re-exports app.main:app)
 scripts/        crawl_and_seed_admin_code.py, seed_all_health_code.py, generate_coverage_report.py
 tests/          parser + ingestion + API + rate-limit + section/related/topic-filter tests (fake in-memory Mongo)
 docs/           architecture, API reference, deployment, data source, COVERAGE.md (generated)
+postman/        Postman collection + environments for testing the deployed API
 SKILL.md        agent-facing API reference (endpoints, curl, composing a final answer, usage steps)
 ```
 
@@ -35,7 +48,7 @@ SKILL.md        agent-facing API reference (endpoints, curl, composing a final a
 
 ### 2. Configure environment
 
-```
+```bash
 cp .env.example .env
 # edit .env: set MONGO_ATLAS_CONN_STR to your Atlas connection string
 ```
@@ -44,7 +57,7 @@ See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for the full list of environment 
 
 ### 3. Install dependencies and run locally
 
-```
+```bash
 python -m venv .venv
 .venv\Scripts\activate        # or: source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -55,7 +68,7 @@ Check `GET http://localhost:8000/api/v1/health` returns `{"status": "ok"}` (requ
 
 ### 4. Seed real law data
 
-```
+```bash
 python -m scripts.crawl_and_seed_admin_code    # entire NYC Admin Code - takes a while (~30 min)
 python -m scripts.seed_all_health_code         # every NYC Health Code article - a few minutes
 ```
@@ -64,7 +77,7 @@ The first crawls and ingests the **entire** NYC Administrative Code (all titles/
 
 ### 5. Try it
 
-```
+```bash
 curl -X POST http://localhost:8000/api/v1/is_action_allowed \
   -H "Content-Type: application/json" \
   -d '{"action": "Keep backyard chickens"}'
@@ -80,7 +93,7 @@ Note this is keyword search, not semantic search: term frequency drives ranking.
 
 ### 6. Run tests
 
-```
+```bash
 python -m pytest tests/ -v
 ```
 
@@ -88,7 +101,7 @@ Tests run against a fake in-memory Mongo double (`tests/fake_mongo.py`), includi
 
 ### 7. Deploy to Vercel
 
-```
+```bash
 npm i -g vercel      # if you don't already have the CLI
 vercel dev            # sanity-check locally first
 vercel                 # deploy
@@ -123,3 +136,17 @@ All endpoints except `/` and `/skill.md` are under `/api/v1` and rate-limited pe
 ## Coverage
 
 Both sources are ingested **in full** — the entire NYC Administrative Code (via `scripts/crawl_and_seed_admin_code.py`, which crawls the site's own table of contents rather than assuming a fixed depth) and every NYC Health Code article (via `scripts/seed_all_health_code.py`, which discovers the article list from `nyc.gov` rather than hardcoding it). **Exact current coverage** — every title/chapter/subchapter/article actually ingested, with section counts and links — is in [docs/COVERAGE.md](./docs/COVERAGE.md), generated live from MongoDB so it can't drift out of sync. `POST /api/v1/ingest` also works for ad hoc single-page/article additions. Re-ingesting an already-seen URL is idempotent. Details and known formatting quirks discovered along the way: [docs/DATA_SOURCE.md](./docs/DATA_SOURCE.md).
+
+## Documentation index
+
+This file covers quick-start and a high-level summary. Everything else lives in [docs/](./docs/) and the repo root:
+
+| Page | Covers |
+|---|---|
+| [SKILL.md](./SKILL.md) | Agent-facing API reference: every endpoint with curl + example JSON, how a calling agent should compose `{answer, sources, reasoning}` from citations, and the rules for never overclaiming |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System design: data flow, `SourceLoader` ingestion pattern, storage schema, search-mode fallback, rate-limiting sequence, and `is_action_allowed` decision logic — with Mermaid diagrams |
+| [docs/API.md](./docs/API.md) | Full REST reference: every endpoint, request fields, curl examples, sample responses, error codes |
+| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | MongoDB Atlas + Vercel free-tier setup, environment variable table, production-readiness notes |
+| [docs/DATA_SOURCE.md](./docs/DATA_SOURCE.md) | Where the law text comes from, licensing, PDF/HTML parsing quirks discovered during ingestion, and known limitations (keyword vs. semantic search, coincidental keyword matches) |
+| [docs/COVERAGE.md](./docs/COVERAGE.md) | Exact ingested coverage (every title/chapter/subchapter/article), generated live from MongoDB |
+| [postman/README.md](./postman/README.md) | Postman collection for testing the deployed API — import instructions, Newman CLI usage, why the ingest/rate-limit folders are manual-only |
