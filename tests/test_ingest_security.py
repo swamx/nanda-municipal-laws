@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import app.ingestion.pipeline as pipeline
+import app.ingestion.fetcher as fetcher
 from app.config import settings
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "t24_c02_sch04.html"
@@ -16,7 +16,7 @@ def test_ingest_rejects_batch_over_max_urls(client):
 
 def test_ingest_requires_api_key_when_configured(client, monkeypatch):
     monkeypatch.setattr(settings, "ingest_api_key", "test-secret")
-    monkeypatch.setattr(pipeline, "fetch_page", lambda url: FIXTURE_PATH.read_text(encoding="utf-8"))
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: FIXTURE_PATH.read_text(encoding="utf-8"))
     # This test issues 3 calls to assert on auth, not rate limiting - raise
     # the ingest limit so it doesn't interfere with those assertions.
     monkeypatch.setattr(settings, "ingest_rate_limit_per_minute", 100)
@@ -40,7 +40,7 @@ def test_ingest_requires_api_key_when_configured(client, monkeypatch):
 
 
 def test_ingest_has_its_own_stricter_rate_limit(client, monkeypatch):
-    monkeypatch.setattr(pipeline, "fetch_page", lambda url: FIXTURE_PATH.read_text(encoding="utf-8"))
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: FIXTURE_PATH.read_text(encoding="utf-8"))
     assert settings.ingest_rate_limit_per_minute == 1
 
     first = client.post("/api/v1/ingest", json={"urls": ["https://example.com/"]})
@@ -51,7 +51,7 @@ def test_ingest_has_its_own_stricter_rate_limit(client, monkeypatch):
 
 
 def test_ingest_rate_limit_does_not_share_bucket_with_general_endpoints(client, monkeypatch):
-    monkeypatch.setattr(pipeline, "fetch_page", lambda url: FIXTURE_PATH.read_text(encoding="utf-8"))
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: FIXTURE_PATH.read_text(encoding="utf-8"))
 
     ingest_response = client.post("/api/v1/ingest", json={"urls": ["https://example.com/"]})
     assert ingest_response.status_code == 200

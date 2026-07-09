@@ -1,6 +1,6 @@
-# Municipal Bylaws Knowledge API
+# Municipal Legal Intelligence Service
 
-Searches real NYC Administrative Code bylaw text and returns citable sections with source URLs, so an agent can answer municipal-law questions without hallucinating a citation.
+Returns precise, citable, structured facts from real NYC municipal law — section text, metadata, cross-references, and mechanical match reasoning — so an agent can answer a question like "Can I keep chickens in Queens?" without guessing at 14 PDFs; it does **not** synthesize a legal answer for you.
 
 Base URL: `https://nanda-municipal-laws.vercel.app` (use `http://localhost:8000` during local development)
 
@@ -8,77 +8,134 @@ Base URL: `https://nanda-municipal-laws.vercel.app` (use `http://localhost:8000`
 
 ### `POST /api/v1/search`
 
-Keyword search over ingested bylaw sections; returns a ranked list of results (no synthesized answer — the caller composes the answer from the returned text and citations).
+Keyword search over ingested law sections. Optional filters: `title_num`, `chapter_num`, `document_type`, `agency`, `topic`. Returns ranked results plus a `reasoning` string explaining the match mechanically — never a legal conclusion.
 
 ```bash
 curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/search \
   -H "Content-Type: application/json" \
-  -d '{"query": "after hours weekend limits construction work", "limit": 5}'
+  -d '{"query": "rooster keeping poultry", "document_type": "NYC Health Code"}'
 ```
 
 ```json
 {
-  "query": "after hours weekend limits construction work",
+  "query": "rooster keeping poultry",
   "results": [
     {
-      "document_id": "6a4fa65d15b368181963450f",
-      "section_number": "24-222",
-      "section_title": "After hours and weekend limits on construction work",
-      "url": "https://nycadmincode.readthedocs.io/t24/c02/sch04/#section-24-222",
-      "score": 42.0,
-      "snippet": "§ 24-222 After hours and weekend limits on construction work. Except as otherwise provided..."
+      "document_id": "...",
+      "section_number": "161.19",
+      "section_title": "Keeping of livestock, live poultry and rabbits",
+      "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=14",
+      "score": 12.0,
+      "snippet": "§161.19 Keeping of livestock, live poultry and rabbits. (a) No person shall keep a live rooster, duck, goose or turkey...",
+      "document_type": "NYC Health Code",
+      "agency": "Department of Health and Mental Hygiene (DOHMH)",
+      "topic": "ANIMALS"
     }
   ],
-  "count": 1
+  "count": 1,
+  "reasoning": "matched query 'rooster keeping poultry' against 41 candidate chunk(s) after applying filters; ranked by term frequency, title weighted higher than body"
 }
+```
+
+### `GET /api/v1/sections/{section_number}`
+
+Exact lookup by section number (e.g. `161.19` or `24-222`) — full text, metadata, and a deterministic `structural_summary` (one bullet per lettered/numbered subsection, **not** an abstractive summary).
+
+```bash
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/sections/161.19
+```
+
+```json
+{
+  "section_number": "161.19",
+  "section_title": "Keeping of livestock, live poultry and rabbits",
+  "text": "§161.19 Keeping of livestock, live poultry and rabbits. (a) No person shall keep a live rooster, duck, goose or turkey in the City of New York except (1) in a slaughterhouse authorized by federal or state law... (b) A person who is authorized... (c) Live rabbit and poultry markets...",
+  "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=14",
+  "document_type": "NYC Health Code",
+  "agency": "Department of Health and Mental Hygiene (DOHMH)",
+  "topic": "ANIMALS",
+  "jurisdiction": "New York City",
+  "keywords": ["keeping", "livestock", "live", "poultry", "rabbits"],
+  "cross_references": ["161.01"],
+  "mentions_penalty": false,
+  "mentions_permit": true,
+  "effective_date": null,
+  "repealed": false,
+  "structural_summary": [
+    "(a) No person shall keep a live rooster, duck, goose or turkey in the City of New York except...",
+    "(b) A person who is authorized by applicable law to keep for sale or sell livestock, live rabbits or poultry shall keep the premises... clean and free of animal nuisances.",
+    "(c) Live rabbit and poultry markets. Live rabbits and poultry intended for sale shall not be kept on the same premises as a multiple dwelling..."
+  ],
+  "chunk_count": 1,
+  "reasoning": "exact lookup by section_number='161.19'; structural_summary derived by splitting text on sentence-bounded lettered/numbered subsection markers; no query scoring involved"
+}
+```
+
+### `GET /api/v1/sections/{section_number}/related`
+
+Resolves the section's `cross_references` into their own citations — a lightweight citation graph, one hop deep.
+
+```bash
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/sections/161.19/related
+```
+
+```json
+{
+  "section_number": "161.19",
+  "related": [
+    {"section_number": "161.01", "section_title": "Wild and other animals prohibited", "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=1", "document_type": "NYC Health Code", "resolved": true}
+  ],
+  "reasoning": "extracted 1 cross-reference(s) from §161.19's body text via regex; 1 of 1 resolved against the ingested corpus"
+}
+```
+
+A reference to a section outside the ingested corpus is still listed, with `"resolved": false` and null `url`/`section_title` — a gap is shown, never hidden.
+
+### `POST /api/v1/penalties`
+
+Filters to sections whose text was flagged as mentioning a penalty/fine/violation (a keyword heuristic, not legal certainty — see Rules below). Optional `query` and `topic`.
+
+```bash
+curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/penalties \
+  -H "Content-Type: application/json" -d '{"topic": "NOISE CONTROL"}'
+```
+
+```json
+{"results": [{"section_number": "24-263", "section_title": "Civil penalties", "...": "..."}], "count": 1, "reasoning": "filtered to chunks flagged mentions_penalty=true; ..."}
+```
+
+### `POST /api/v1/permits`
+
+Filters to sections flagged as mentioning a permit/license/authorization requirement. Optional `query` and `topic`.
+
+```bash
+curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/permits \
+  -H "Content-Type: application/json" -d '{"query": "keep certain animals"}'
+```
+
+```json
+{"results": [{"section_number": "161.09", "section_title": "Permits to keep certain animals", "...": "..."}], "count": 1, "reasoning": "filtered to chunks flagged mentions_permit=true; ..."}
 ```
 
 ### `GET /api/v1/documents/{id}`
 
-Metadata (title/chapter/subchapter, source URL) for one ingested chapter/subchapter page, looked up by the `document_id` a search result returned.
+Metadata for one ingested source document (an admin-code chapter/subchapter page or a health-code article), by the `document_id` a search result returned.
 
 ```bash
 curl -s https://nanda-municipal-laws.vercel.app/api/v1/documents/6a4fa65d15b368181963450f
 ```
 
-```json
-{
-  "id": "6a4fa65d15b368181963450f",
-  "title_num": "24",
-  "title_name": "ENVIRONMENTAL PROTECTION AND UTILITIES",
-  "chapter_num": "2",
-  "chapter_name": "NOISE CONTROL",
-  "subchapter_num": "4",
-  "subchapter_name": "CONSTRUCTION NOISE MANAGEMENT",
-  "source_url": "https://nycadmincode.readthedocs.io/t24/c02/sch04/",
-  "ingested_at": "2026-07-09T13:47:09.793000",
-  "section_count": 6
-}
-```
-
 ### `GET /api/v1/documents/{id}/chunks`
 
-All sections belonging to a document, in order — useful for reading a whole subchapter rather than one matched section.
+All sections belonging to a document, in order.
 
 ```bash
 curl -s https://nanda-municipal-laws.vercel.app/api/v1/documents/6a4fa65d15b368181963450f/chunks
 ```
 
-```json
-[
-  {
-    "section_number": "24-219",
-    "section_title": "Noise mitigation rules",
-    "text": "§ 24-219 Noise mitigation rules. (a) The commissioner shall adopt rules...",
-    "url": "https://nycadmincode.readthedocs.io/t24/c02/sch04/#section-24-219",
-    "chunk_index": 0
-  }
-]
-```
-
 ### `GET /api/v1/health`
 
-Reports whether the service can reach its database. Useful as a pre-flight check before relying on the other endpoints.
+Reports whether the service can reach its database.
 
 ```bash
 curl -s https://nanda-municipal-laws.vercel.app/api/v1/health
@@ -88,12 +145,43 @@ curl -s https://nanda-municipal-laws.vercel.app/api/v1/health
 {"status": "ok"}
 ```
 
+## Not currently supported
+
+- **Zoning lookup by address** (`find_zoning`) — needs NYC GIS/PLUTO address-to-district resolution, a different data domain than the ingested law text. Don't guess at coverage; say this isn't supported if asked.
+- **Comparing two revisions of a section over time** (`compare_versions`) — needs historical snapshots this service doesn't retain. Don't invent a "what changed" answer.
+
+## Composing your final answer
+
+This API deliberately returns citations and mechanical `reasoning`, never a finished legal answer, so **you** (the calling agent) compose the final response, in exactly this shape:
+
+```json
+{
+  "answer": "...",
+  "sources": [{"section": "161.19", "url": "https://.../health-code-article161.pdf#page=14", "score": 12.0}],
+  "reasoning": "Derived from ..."
+}
+```
+
+Confidence isn't returned by the API — compute it yourself from what you got back:
+- **High**: an exact `/sections/{id}` lookup, or a `/search` top result with a clearly higher score than the rest.
+- **Medium**: a `/search` result that matched on keywords only, with several close-scoring results.
+- **Low**: an empty `results`/`related` list, or only weakly-scored/off-topic matches.
+
+## Rules
+
+1. **Never state a fact or number that isn't literally present in the returned `text`.** A real, cautionary example: it's popular internet folklore that NYC limits backyard chickens to "a maximum of 6 hens" — the real text of §161.19 states no such number. It only prohibits keeping a live rooster, duck, goose, or turkey outside specific exceptions, and says nothing restricting hens. If you (or the user) assume a number, verify it against the returned `text` before repeating it — if it's not there, don't say it.
+2. **Always cite `section_number` and `url`** next to anything you quote or paraphrase.
+3. **This is keyword search, not semantic search.** Term frequency drives `/search` ranking, not phrase meaning — retry with different literal keywords before concluding there's no coverage.
+4. **`mentions_penalty`/`mentions_permit` are heuristics** (keyword-based), not a legal determination that a penalty or permit requirement definitely does or doesn't apply — read the actual `text` before asserting either way.
+5. **If results are empty, say so.** Don't answer from general knowledge as if it came from this service.
+6. **Scope**: currently indexed is NYC Administrative Code Title 24 Chapter 2 (Noise Control) and NYC Health Code Article 161 (Animals) only. Say so explicitly if a question falls outside this — don't imply broader coverage.
+
 ## How to use this service
 
-1. Before answering a question about NYC municipal bylaws, call `POST /api/v1/search` with the key terms from the question (not the full question as a sentence — this is keyword search, so plain terms work best).
-2. Look at the `results` list. If it's empty or the top results look unrelated, retry the search with different literal keywords (synonyms, the specific activity/place/time named in the question) before concluding there's no coverage — ranking is by term frequency, not meaning, so wording matters.
-3. Currently only NYC Administrative Code Title 24, Chapter 2 (Noise Control) is indexed. If the question is clearly outside that scope, say so explicitly rather than answering from general knowledge as if it came from this service.
-4. When you find a relevant result, use its `section_number` and `url` fields to cite it (e.g. "NYC Admin Code § 24-222, `<url>`") next to any text you quote or paraphrase from `snippet` or `text`.
-5. If you need the full text of a section's surrounding subchapter, call `GET /api/v1/documents/{document_id}/chunks` using the `document_id` from the search result.
-6. Never invent a section number, title, or body text beyond what an endpoint actually returned.
+1. Pull the key terms (not the full sentence) from the user's question and call `POST /api/v1/search`, optionally filtered by `document_type`/`topic`/`agency` if you can infer them.
+2. If a result's `section_number` looks like the authoritative answer, call `GET /api/v1/sections/{section_number}` for its full text and `structural_summary`.
+3. If you need related context, call `GET /api/v1/sections/{section_number}/related`.
+4. If the question is specifically about penalties or permit requirements, call `POST /api/v1/penalties` or `POST /api/v1/permits` instead of a general search.
+5. If `/search` returns nothing relevant, retry with different literal keywords before concluding there's no coverage.
+6. Compose your final answer in the `{answer, sources, reasoning}` shape above, following every rule in the Rules section — especially never inventing a number or fact absent from the returned `text`.
 7. If a call returns `429`, wait for the number of seconds in the `Retry-After` header before retrying.

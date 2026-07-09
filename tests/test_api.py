@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import app.ingestion.pipeline as pipeline
+import app.ingestion.fetcher as fetcher
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "t24_c02_sch04.html"
 FIXTURE_URL = "https://nycadmincode.readthedocs.io/t24/c02/sch04/"
@@ -8,7 +8,7 @@ FIXTURE_URL = "https://nycadmincode.readthedocs.io/t24/c02/sch04/"
 
 def _ingest_fixture(client, monkeypatch):
     html = FIXTURE_PATH.read_text(encoding="utf-8")
-    monkeypatch.setattr(pipeline, "fetch_page", lambda url: html)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: html)
     response = client.post("/api/v1/ingest", json={"urls": [FIXTURE_URL]})
     assert response.status_code == 200
     return response.json()
@@ -29,7 +29,7 @@ def test_version(client):
 def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["name"] == "Municipal Bylaws Knowledge API"
+    assert response.json()["name"] == "Municipal Legal Intelligence Service"
     assert response.json()["skill"] == "/skill.md"
 
 
@@ -37,7 +37,7 @@ def test_skill_md_served(client):
     response = client.get("/skill.md")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
-    assert response.text.startswith("# Municipal Bylaws Knowledge API")
+    assert response.text.startswith("# Municipal Legal Intelligence Service")
     assert "/api/v1/ingest" not in response.text
 
 

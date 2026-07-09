@@ -7,6 +7,8 @@ _SECTION_ID_RE = re.compile(r"^section-([\w]+-[\w.]+)$")
 _HEADER_RE = re.compile(r"^\s*§\s*[\w\-.]+\s+(?P<title>.+?)\.\s*(?P<body>.*)$", re.DOTALL)
 _BREADCRUMB_RE = re.compile(r"^(Title|Chapter|Subchapter)\s+([\w-]+)\s*-\s*(.+)$")
 
+ADMIN_CODE_AGENCY = "Department of Environmental Protection (DEP)"
+
 
 @dataclass
 class SectionChunk:
@@ -17,16 +19,26 @@ class SectionChunk:
 
 
 @dataclass
-class PageMetadata:
-    title_num: str
-    title_name: str | None
-    chapter_num: str
-    chapter_name: str | None
-    subchapter_num: str | None
-    subchapter_name: str | None
+class SourceMetadata:
+    """Common metadata shape produced by every ingestion loader (HTML admin
+    code, PDF health code, ...), so app/ingestion/pipeline.py can persist a
+    document record without caring which loader ran.
+    """
+
+    document_type: str
+    agency: str
+    topic: str
+    title_num: str | None = None
+    title_name: str | None = None
+    chapter_num: str | None = None
+    chapter_name: str | None = None
+    subchapter_num: str | None = None
+    subchapter_name: str | None = None
+    article_num: str | None = None
+    article_name: str | None = None
 
 
-def parse_metadata(soup: BeautifulSoup) -> PageMetadata:
+def parse_metadata(soup: BeautifulSoup) -> SourceMetadata:
     title_num = title_name = chapter_num = chapter_name = None
     subchapter_num = subchapter_name = None
 
@@ -45,7 +57,17 @@ def parse_metadata(soup: BeautifulSoup) -> PageMetadata:
     if not title_num or not chapter_num:
         raise ValueError("could not parse title/chapter breadcrumb metadata from page")
 
-    return PageMetadata(title_num, title_name, chapter_num, chapter_name, subchapter_num, subchapter_name)
+    return SourceMetadata(
+        document_type="NYC Administrative Code",
+        agency=ADMIN_CODE_AGENCY,
+        topic=chapter_name or chapter_num,
+        title_num=title_num,
+        title_name=title_name,
+        chapter_num=chapter_num,
+        chapter_name=chapter_name,
+        subchapter_num=subchapter_num,
+        subchapter_name=subchapter_name,
+    )
 
 
 def parse_sections(soup: BeautifulSoup) -> list[SectionChunk]:
@@ -77,6 +99,6 @@ def parse_sections(soup: BeautifulSoup) -> list[SectionChunk]:
     return chunks
 
 
-def parse_page(html: str) -> tuple[PageMetadata, list[SectionChunk]]:
+def parse_page(html: str) -> tuple[SourceMetadata, list[SectionChunk]]:
     soup = BeautifulSoup(html, "html.parser")
     return parse_metadata(soup), parse_sections(soup)

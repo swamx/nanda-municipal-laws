@@ -3,7 +3,7 @@
 Source: https://nycadmincode.readthedocs.io/ - a CC0-licensed, weekly-updated
 mirror of the official NYC Administrative Code.
 
-Usage (from the repo root, with MONGODB_URI set):
+Usage (from the repo root, with MONGO_ATLAS_CONN_STR set):
     python -m scripts.seed_admin_code
 """
 

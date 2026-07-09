@@ -24,12 +24,17 @@ def get_document(doc_id: str, db: Database = Depends(get_db)) -> DocumentOut:
 
     return DocumentOut(
         id=str(document["_id"]),
-        title_num=document["title_num"],
+        document_type=document["document_type"],
+        agency=document["agency"],
+        topic=document["topic"],
+        title_num=document.get("title_num"),
         title_name=document.get("title_name"),
-        chapter_num=document["chapter_num"],
+        chapter_num=document.get("chapter_num"),
         chapter_name=document.get("chapter_name"),
         subchapter_num=document.get("subchapter_num"),
         subchapter_name=document.get("subchapter_name"),
+        article_num=document.get("article_num"),
+        article_name=document.get("article_name"),
         source_url=document["source_url"],
         ingested_at=document["ingested_at"],
         section_count=document["section_count"],
@@ -42,7 +47,8 @@ def get_document_chunks(doc_id: str, db: Database = Depends(get_db)) -> list[Chu
     if db[LAWS_COLLECTION].find_one({"_id": document_id, "type": "document"}) is None:
         raise HTTPException(status_code=404, detail="document not found")
 
-    chunks = db[LAWS_COLLECTION].find({"document_id": document_id, "type": "chunk"}).sort("chunk_index", 1)
+    chunks = db[LAWS_COLLECTION].find({"document_id": document_id, "type": "chunk"})
+    ordered = sorted(chunks, key=lambda c: c["chunk_index"])
     return [
         ChunkOut(
             section_number=chunk["section_number"],
@@ -50,6 +56,13 @@ def get_document_chunks(doc_id: str, db: Database = Depends(get_db)) -> list[Chu
             text=chunk["text"],
             url=chunk["url"],
             chunk_index=chunk["chunk_index"],
+            document_type=chunk["document_type"],
+            agency=chunk["agency"],
+            topic=chunk["topic"],
+            keywords=chunk["keywords"],
+            cross_references=chunk["cross_references"],
+            mentions_penalty=chunk["mentions_penalty"],
+            mentions_permit=chunk["mentions_permit"],
         )
-        for chunk in chunks
+        for chunk in ordered
     ]

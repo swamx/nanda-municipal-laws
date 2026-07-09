@@ -7,12 +7,12 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.config import settings
 from app.rate_limit import ingest_rate_limiter, rate_limiter
-from app.routers import documents, health, ingest, search
+from app.routers import documents, health, ingest, penalties, permits, search, sections
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("municipal_bylaws_api")
 
-app = FastAPI(title="Municipal Bylaws Knowledge API", version=settings.app_version)
+app = FastAPI(title="Municipal Legal Intelligence Service", version=settings.app_version)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +25,9 @@ _rate_limited = [Depends(rate_limiter)]
 app.include_router(health.router, prefix="/api/v1", dependencies=_rate_limited)
 app.include_router(search.router, prefix="/api/v1", dependencies=_rate_limited)
 app.include_router(documents.router, prefix="/api/v1", dependencies=_rate_limited)
+app.include_router(sections.router, prefix="/api/v1", dependencies=_rate_limited)
+app.include_router(penalties.router, prefix="/api/v1", dependencies=_rate_limited)
+app.include_router(permits.router, prefix="/api/v1", dependencies=_rate_limited)
 # Stricter limit for /ingest (outbound fetches + Atlas writes), not the general one.
 app.include_router(ingest.router, prefix="/api/v1", dependencies=[Depends(ingest_rate_limiter)])
 
@@ -35,7 +38,7 @@ _SKILL_MD_CONTENT = _SKILL_MD_PATH.read_text(encoding="utf-8")
 @app.get("/")
 def root() -> dict:
     return {
-        "name": "Municipal Bylaws Knowledge API",
+        "name": "Municipal Legal Intelligence Service",
         "version": settings.app_version,
         "docs": "/docs",
         "health": "/api/v1/health",

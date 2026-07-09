@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import app.ingestion.fetcher as fetcher
 import app.ingestion.pipeline as pipeline
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "t24_c02_sch04.html"
@@ -8,7 +9,7 @@ FIXTURE_URL = "https://nycadmincode.readthedocs.io/t24/c02/sch04/"
 
 def test_ingest_url_persists_document_and_chunks(fake_db, monkeypatch):
     html = FIXTURE_PATH.read_text(encoding="utf-8")
-    monkeypatch.setattr(pipeline, "fetch_page", lambda url: html)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: html)
 
     chunks_ingested = pipeline.ingest_url(fake_db, FIXTURE_URL)
 
@@ -31,7 +32,7 @@ def test_ingest_url_persists_document_and_chunks(fake_db, monkeypatch):
 
 def test_ingest_url_is_idempotent_on_reingestion(fake_db, monkeypatch):
     html = FIXTURE_PATH.read_text(encoding="utf-8")
-    monkeypatch.setattr(pipeline, "fetch_page", lambda url: html)
+    monkeypatch.setattr(fetcher, "fetch_page", lambda url: html)
 
     first_count = pipeline.ingest_url(fake_db, FIXTURE_URL)
     second_count = pipeline.ingest_url(fake_db, FIXTURE_URL)
