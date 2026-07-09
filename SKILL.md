@@ -2,7 +2,7 @@
 
 Searches real NYC Administrative Code bylaw text and returns citable sections with source URLs, so an agent can answer municipal-law questions without hallucinating a citation.
 
-Base URL: `https://YOUR-DEPLOYMENT.vercel.app` (use `http://localhost:8000` during local development)
+Base URL: `https://nanda-municipal-laws.vercel.app` (use `http://localhost:8000` during local development)
 
 ## Endpoints
 
@@ -11,7 +11,7 @@ Base URL: `https://YOUR-DEPLOYMENT.vercel.app` (use `http://localhost:8000` duri
 Keyword search over ingested bylaw sections; returns a ranked list of results (no synthesized answer — the caller composes the answer from the returned text and citations).
 
 ```bash
-curl -s -X POST https://YOUR-DEPLOYMENT.vercel.app/api/v1/search \
+curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/search \
   -H "Content-Type: application/json" \
   -d '{"query": "after hours weekend limits construction work", "limit": 5}'
 ```
@@ -38,7 +38,7 @@ curl -s -X POST https://YOUR-DEPLOYMENT.vercel.app/api/v1/search \
 Metadata (title/chapter/subchapter, source URL) for one ingested chapter/subchapter page, looked up by the `document_id` a search result returned.
 
 ```bash
-curl -s https://YOUR-DEPLOYMENT.vercel.app/api/v1/documents/6a4fa65d15b368181963450f
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/documents/6a4fa65d15b368181963450f
 ```
 
 ```json
@@ -61,7 +61,7 @@ curl -s https://YOUR-DEPLOYMENT.vercel.app/api/v1/documents/6a4fa65d15b368181963
 All sections belonging to a document, in order — useful for reading a whole subchapter rather than one matched section.
 
 ```bash
-curl -s https://YOUR-DEPLOYMENT.vercel.app/api/v1/documents/6a4fa65d15b368181963450f/chunks
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/documents/6a4fa65d15b368181963450f/chunks
 ```
 
 ```json
@@ -81,7 +81,7 @@ curl -s https://YOUR-DEPLOYMENT.vercel.app/api/v1/documents/6a4fa65d15b368181963
 Reports whether the service can reach its database. Useful as a pre-flight check before relying on the other endpoints.
 
 ```bash
-curl -s https://YOUR-DEPLOYMENT.vercel.app/api/v1/health
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/health
 ```
 
 ```json

@@ -64,8 +64,8 @@ Vercel auto-discovers the FastAPI `app` instance via `api/index.py` (zero-config
 After deploying, re-run the seed script against the same Atlas cluster (it's independent of which server — local or Vercel — is running; the data lives in Atlas either way), then smoke-test:
 
 ```bash
-curl -s https://your-app.vercel.app/api/v1/health
-curl -s -X POST https://your-app.vercel.app/api/v1/search \
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/health
+curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/search \
   -H "Content-Type: application/json" \
   -d '{"query": "after hours weekend limits construction work"}'
 ```
