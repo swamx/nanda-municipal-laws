@@ -53,6 +53,30 @@ def test_decide_route_passes_model_through(monkeypatch):
     assert captured["model"] == "opus"
 
 
+def test_decide_route_accepts_context_separate_from_query_or_action(monkeypatch):
+    # Pins the fix for a real, observed failure mode: routing "keep backyard
+    # chickens in Queens" with the borough folded into query_or_action let
+    # "Queens" coincidentally match an unrelated cemetery-law section
+    # (§25-112) via keyword search, producing a misleading allowed:false.
+    # The system prompt now instructs the borough to go in `context` instead.
+    monkeypatch.setattr(
+        router,
+        "ask_structured",
+        lambda prompt, **kwargs: {
+            "endpoint": "is_action_allowed",
+            "query_or_action": "keep backyard chickens",
+            "context": {"borough": "Queens"},
+            "reasoning": "core action only; borough kept out of the keyword search",
+        },
+    )
+
+    decision = router.decide_route("Can I keep backyard chickens in Queens?")
+
+    assert decision.query_or_action == "keep backyard chickens"
+    assert "queens" not in decision.query_or_action.lower()
+    assert decision.context == {"borough": "Queens"}
+
+
 def test_decide_route_raises_when_claude_returns_an_invalid_endpoint(monkeypatch):
     monkeypatch.setattr(
         router,

@@ -9,6 +9,10 @@ from .config import settings
 BANNER = """\
 Municipal Law Skill - local agent simulator
 Base URL: {base_url}
+Model: {model} (each turn makes two claude CLI calls - route, then compose;
+expect roughly 25-45s per question, less with everyday questions once
+prompt caching warms up. Pass --model sonnet/opus for more thorough
+reasoning at the cost of speed.)
 Type a question in plain English (e.g. "Can I keep backyard chickens in Queens?").
 Type 'exit' or 'quit' to leave.
 """
@@ -31,7 +35,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
-    print(BANNER.format(base_url=args.api_base_url))
+    print(BANNER.format(base_url=args.api_base_url, model=args.model or "(Claude Code session default)"))
 
     agent = Agent(api_client=ApiClient(base_url=args.api_base_url), model=args.model)
     try:

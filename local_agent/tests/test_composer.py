@@ -40,6 +40,10 @@ def test_compose_answer_includes_the_raw_api_response_and_skill_md_in_the_prompt
 
     assert "161.19" in captured["prompt"]
     assert "Composing your final answer" in captured["system_prompt"]
+    # Verified empirically that long, unconstrained answers add real latency
+    # (1000+ output tokens, 30-40s) - this instruction measurably shortens
+    # them without dropping the citation/caveat content.
+    assert "concise" in captured["system_prompt"].lower()
 
 
 def test_compose_answer_passes_model_through(monkeypatch):

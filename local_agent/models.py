@@ -11,10 +11,23 @@ class RoutingDecision(BaseModel):
     endpoint: Endpoint = Field(description="Which Municipal Law Skill endpoint to call.")
     query_or_action: str = Field(
         description=(
-            "The action text (for is_action_allowed), the search query (for "
-            "search/penalties/permits), or the exact section_number (for "
-            "sections/sections_related) to use as the call's primary parameter."
+            "The CORE action or search terms only - e.g. 'keep backyard chickens', not "
+            "'keep backyard chickens in Queens'. This text is used for literal keyword "
+            "matching against statute text, so location names, addresses, and boroughs "
+            "must NOT be included here: they don't appear in the corpus and can coincidentally "
+            "match an unrelated section (e.g. 'Queens' matching a cemetery-law section that has "
+            "nothing to do with the actual question). Put any such context in `context` instead."
         )
+    )
+    context: dict[str, str] | None = Field(
+        default=None,
+        description=(
+            "Non-search-relevant context from the question (e.g. {'borough': 'Queens'}) - "
+            "passed through to is_action_allowed's context field for the caller's own "
+            "record-keeping. Per SKILL.md, this does not currently narrow the API's own "
+            "determination, but keeping it out of query_or_action avoids polluting the "
+            "keyword search with words that don't appear in the ingested statute text."
+        ),
     )
     document_type: Literal["NYC Administrative Code", "NYC Health Code"] | None = Field(
         default=None,

@@ -21,7 +21,7 @@ class Agent:
 
     def _call(self, decision: RoutingDecision) -> dict:
         if decision.endpoint == "is_action_allowed":
-            return self.api_client.is_action_allowed(decision.query_or_action)
+            return self.api_client.is_action_allowed(decision.query_or_action, context=decision.context)
         if decision.endpoint == "search":
             params = {"document_type": decision.document_type} if decision.document_type else {}
             return self.api_client.search(decision.query_or_action, **params)

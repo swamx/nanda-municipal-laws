@@ -16,6 +16,10 @@ answer" and "Rules" sections exactly:
 `reasoning` actually says (e.g. an absence-of-restriction inference is weaker than an explicit \
 statement - see SKILL.md's confidence rubric).
 
+Keep `answer` concise - 2 to 4 sentences covering the verdict, the key caveat, and the citation. \
+Put any additional supporting detail in `reasoning` instead of padding out `answer`. This is a \
+CLI chat tool, not a legal memo.
+
 --- SKILL.md ---
 {skill_md}
 """
