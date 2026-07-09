@@ -96,6 +96,7 @@ All endpoints except `/` are under `/api/v1` and rate-limited per client IP (def
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/` | GET | Service info (not rate-limited) |
+| `/skill.md` | GET | Serves the root `SKILL.md` as plain text (not rate-limited) |
 | `/api/v1/health` | GET | `{"status": "ok" \| "degraded"}` based on live Mongo reachability |
 | `/api/v1/version` | GET | `{"version": "..."}` |
 | `/api/v1/search` | POST | `{query, limit?, title_num?, chapter_num?}` → ranked `results` (section, url, score, snippet) |

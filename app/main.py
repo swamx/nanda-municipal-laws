@@ -1,8 +1,9 @@
 import logging
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.config import settings
 from app.rate_limit import ingest_rate_limiter, rate_limiter
@@ -27,6 +28,9 @@ app.include_router(documents.router, prefix="/api/v1", dependencies=_rate_limite
 # Stricter limit for /ingest (outbound fetches + Atlas writes), not the general one.
 app.include_router(ingest.router, prefix="/api/v1", dependencies=[Depends(ingest_rate_limiter)])
 
+_SKILL_MD_PATH = Path(__file__).resolve().parent.parent / "SKILL.md"
+_SKILL_MD_CONTENT = _SKILL_MD_PATH.read_text(encoding="utf-8")
+
 
 @app.get("/")
 def root() -> dict:
@@ -35,7 +39,13 @@ def root() -> dict:
         "version": settings.app_version,
         "docs": "/docs",
         "health": "/api/v1/health",
+        "skill": "/skill.md",
     }
+
+
+@app.get("/skill.md", response_class=PlainTextResponse)
+def skill_md() -> str:
+    return _SKILL_MD_CONTENT
 
 
 @app.exception_handler(Exception)

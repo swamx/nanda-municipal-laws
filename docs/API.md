@@ -3,7 +3,7 @@
 Base URL (local dev): `http://localhost:8000`
 Base URL (deployed): your Vercel deployment URL, e.g. `https://your-app.vercel.app`
 
-All endpoints except `GET /` are under `/api/v1` and are rate-limited per client IP, in two separate buckets: `RATE_LIMIT_PER_MINUTE` (default **10**/min) for `/search`, `/documents/*`, `/health`, and `/version`; `INGEST_RATE_LIMIT_PER_MINUTE` (default **1**/min) for `/ingest`, since it triggers outbound fetches and Atlas writes rather than just reads. Exceeding either returns `429` with a `Retry-After` header.
+All endpoints except `GET /` and `GET /skill.md` are under `/api/v1` and are rate-limited per client IP, in two separate buckets: `RATE_LIMIT_PER_MINUTE` (default **10**/min) for `/search`, `/documents/*`, `/health`, and `/version`; `INGEST_RATE_LIMIT_PER_MINUTE` (default **1**/min) for `/ingest`, since it triggers outbound fetches and Atlas writes rather than just reads. Exceeding either returns `429` with a `Retry-After` header.
 
 ---
 
@@ -16,8 +16,20 @@ curl -s http://localhost:8000/
 ```
 
 ```json
-{"name":"Municipal Bylaws Knowledge API","version":"0.1.0","docs":"/docs","health":"/api/v1/health"}
+{"name":"Municipal Bylaws Knowledge API","version":"0.1.0","docs":"/docs","health":"/api/v1/health","skill":"/skill.md"}
 ```
+
+---
+
+## `GET /skill.md`
+
+Serves the repo's root `SKILL.md` as plain text — the agent-facing API reference, live from the running deployment rather than a file an agent has to separately clone/fetch from source. Not rate-limited.
+
+```bash
+curl -s http://localhost:8000/skill.md
+```
+
+Returns the raw Markdown content of [`SKILL.md`](../SKILL.md).
 
 ---
 

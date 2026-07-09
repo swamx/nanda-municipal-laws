@@ -30,6 +30,15 @@ def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json()["name"] == "Municipal Bylaws Knowledge API"
+    assert response.json()["skill"] == "/skill.md"
+
+
+def test_skill_md_served(client):
+    response = client.get("/skill.md")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.text.startswith("# Municipal Bylaws Knowledge API")
+    assert "/api/v1/ingest" not in response.text
 
 
 def test_ingest_then_search_surfaces_construction_noise_section(client, monkeypatch):
