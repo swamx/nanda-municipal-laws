@@ -1,6 +1,6 @@
 # Documentation Index
 
-Municipal Legal Intelligence Service — built for the MIT Hackathon. A lightweight FastAPI service that indexes real NYC municipal law text (NYC Administrative Code + NYC Health Code) in MongoDB and exposes deterministic, citation-backed retrieval — search, exact section lookup, cross-reference resolution, and penalty/permit filtering — for consumption by any autonomous agent or chatbot.
+Municipal Law Skill for Autonomous Agents — built for the MIT Hackathon. Any autonomous agent can determine whether an action is legal in New York City by invoking this skill: a lightweight FastAPI service that indexes real NYC municipal law text (NYC Administrative Code + NYC Health Code) in MongoDB and exposes deterministic, citation-backed retrieval — search, exact section lookup, cross-reference resolution, and penalty/permit filtering — without using an LLM, so every answer is grounded in the official code.
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design, data model, and the key design decisions (and constraints) behind them
 - [API.md](./API.md) — full endpoint reference with curl examples and sample responses

@@ -1,10 +1,11 @@
-# Municipal Legal Intelligence Service
+# Municipal Law Skill for Autonomous Agents
 
-A lightweight FastAPI service that indexes real NYC municipal law text in MongoDB and exposes deterministic, citation-backed retrieval — section search, exact lookup, cross-reference resolution, and penalty/permit filtering — for consumption by any autonomous agent or chatbot that calls this API directly (see `SKILL.md`). Built for the MIT Hackathon.
+Any autonomous agent can determine whether an action is legal in New York City by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." Built for the MIT Hackathon as a reusable agent capability (a NANDA-style skill), not a bespoke chatbot: any agent that can call an HTTP endpoint can invoke it, per [SKILL.md](./SKILL.md).
 
-Positioning: agent tool calls return structured facts with citations and mechanical `reasoning`, not "search → 14 PDFs, good luck." The backend never calls an LLM and never fabricates an answer — see [SKILL.md](./SKILL.md) for exactly how a calling agent should compose its final response from what this API returns.
+The skill returns structured facts with citations and mechanical `reasoning` — never a fabricated answer. It never calls an LLM internally; see [SKILL.md](./SKILL.md) for exactly how a calling agent should compose its final response from what this API returns.
 
 Design:
+- **`is_action_allowed(action, context)`** — the headline tool: describe an action in plain language, get back `{allowed, conditions, citations, reasoning, confidence}`. Implemented as retrieval plus rules (keyword search + prohibition/permission classification), not LLM reasoning — `allowed` is only `true`/`false` when the corpus contains an explicit statement; otherwise it's `null` ("unclear"), never a guess from silence.
 - **Deterministic search, no LLM in the loop**: `SEARCH_MODE=text_index` (default) uses native MongoDB `$text`/`textScore`; `in_app` uses a Python TF-style scorer instead — selectable per-request, no embeddings or vector DB either way. No fabricated answers, ever. The API returns ranked results with citations and a `reasoning` string; the caller decides how to use them.
 - **Two real sources, ingested in full**: [nycadmincode.readthedocs.io](https://nycadmincode.readthedocs.io/) (CC0-licensed HTML mirror of the **entire** NYC Administrative Code — all titles) and first-party NYC Health Code PDFs at `nyc.gov` (**all** articles, including Article 161/§161.19, the chicken/poultry-keeping section). Two ingestion formats, one shared pipeline. See [docs/COVERAGE.md](./docs/COVERAGE.md) for exactly what's ingested, generated live from MongoDB.
 - **Storage**: MongoDB (Atlas free tier — the full corpus, 668 documents / ~10,700 chunks, uses ~55 MB of the 512 MB M0 limit) — a single `dl-laws` collection.
@@ -64,6 +65,10 @@ The first crawls and ingests the **entire** NYC Administrative Code (all titles/
 ### 5. Try it
 
 ```
+curl -X POST http://localhost:8000/api/v1/is_action_allowed \
+  -H "Content-Type: application/json" \
+  -d '{"action": "Keep backyard chickens"}'
+
 curl -X POST http://localhost:8000/api/v1/search \
   -H "Content-Type: application/json" \
   -d '{"query": "rooster keeping poultry", "document_type": "NYC Health Code"}'
@@ -103,6 +108,7 @@ All endpoints except `/` and `/skill.md` are under `/api/v1` and rate-limited pe
 | `/skill.md` | GET | Serves the root `SKILL.md` as plain text (not rate-limited) |
 | `/api/v1/health` | GET | `{"status": "ok" \| "degraded"}` based on live Mongo reachability |
 | `/api/v1/version` | GET | `{"version": "..."}` |
+| `/api/v1/is_action_allowed` | POST | `{action, context?, limit?}` → `{allowed, conditions, citations, reasoning, confidence}` — deterministic, no LLM |
 | `/api/v1/search` | POST | `{query, limit?, title_num?, chapter_num?, document_type?, agency?, topic?, search_mode?}` → ranked `results` + `reasoning` |
 | `/api/v1/sections/{section_number}` | GET | Exact lookup by section number — full metadata, cross-references, and a deterministic `structural_summary` |
 | `/api/v1/sections/{section_number}/related` | GET | Resolves that section's cross-references into their own citations |

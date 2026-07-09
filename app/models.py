@@ -136,3 +136,36 @@ class TopicFilterResponse(BaseModel):
     results: list[SearchResultItem]
     count: int
     reasoning: str
+
+
+class ActionCheckRequest(BaseModel):
+    action: str = Field(min_length=1)
+    # Accepted but not currently used to change the determination beyond what's
+    # textually relevant - this corpus has no geographic/zoning-lookup
+    # capability (see "Not supported" in SKILL.md), so e.g. a borough name
+    # in context won't narrow a citywide provision. Kept for forward
+    # compatibility and to echo back in the response for the caller's own
+    # record-keeping.
+    context: dict | None = None
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class ActionCitation(BaseModel):
+    section_number: str
+    section_title: str
+    url: str
+    document_type: str
+    matched_text: str
+
+
+class ActionCheckResponse(BaseModel):
+    action: str
+    # true/false only when an explicit, keyword-matched prohibition or
+    # permission statement was found; null ("unclear") whenever the corpus
+    # doesn't say so plainly - silence is not evidence of legality, so this
+    # never guesses to force a boolean.
+    allowed: bool | None
+    conditions: list[str]
+    citations: list[ActionCitation]
+    reasoning: str
+    confidence: str

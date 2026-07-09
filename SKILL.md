@@ -1,10 +1,37 @@
-# Municipal Legal Intelligence Service
+# Municipal Law Skill for Autonomous Agents
 
-Returns precise, citable, structured facts from real NYC municipal law — section text, metadata, cross-references, and mechanical match reasoning — so an agent can answer a question like "Can I keep chickens in Queens?" without guessing at 14 PDFs; it does **not** synthesize a legal answer for you.
+Any autonomous agent can determine whether an action is legal in New York City by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." It returns precise, citable, structured facts — section text, metadata, cross-references, and mechanical match reasoning — for a question like "Can I keep chickens in Queens?"; it does **not** synthesize a legal answer for you (see "Composing your final answer" below for that split of responsibility).
 
 Base URL: `https://nanda-municipal-laws.vercel.app` (use `http://localhost:8000` during local development)
 
 ## Endpoints
+
+### `POST /api/v1/is_action_allowed`
+
+The headline capability: ask whether a described action is legal in NYC. Deterministic — retrieval (keyword search for the closest-matching section) plus rules (keyword-based prohibition/permission classification of that section's text), **not** LLM reasoning. `allowed` is `true`/`false` only when an explicit statement was found; `null` ("unclear") when nothing relevant was found — it never guesses from silence.
+
+```bash
+curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/is_action_allowed \
+  -H "Content-Type: application/json" -d '{"action": "Keep backyard chickens"}'
+```
+
+```json
+{
+  "action": "Keep backyard chickens",
+  "allowed": true,
+  "conditions": [
+    "(a) No person shall keep a live rooster, duck, goose or turkey in the City of New York except (1) in a slaughterhouse authorized by federal or state law... or (2) as authorized by §161.01 (a) of this Article.",
+    "(c) Live rabbit and poultry markets. Live rabbits and poultry intended for sale shall not be kept on the same premises as a multiple dwelling..."
+  ],
+  "citations": [
+    {"section_number": "161.19", "section_title": "Keeping of livestock, live poultry and rabbits", "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=16", "document_type": "NYC Health Code", "matched_text": "§161.19 Keeping of livestock, live poultry and rabbits. (a) No person shall keep a live rooster..."}
+  ],
+  "reasoning": "§161.19 is the closest-matching provision, but contains no explicit prohibition or permission statement matching keywords in the requested action - this is an absence-of-restriction inference, not an affirmative statement. Read the full section text before relying on it.",
+  "confidence": "medium"
+}
+```
+
+For a prohibited action (`{"action": "keep a rooster in my apartment"}`), the same shape returns `"allowed": false`, `"confidence": "high"`, and cites the actual prohibiting clause in `reasoning`. For an action with no relevant provision found at all, `"allowed": null`, `"citations": []`, `"confidence": "low"` — see Rules below for exactly what each `confidence` level means and a known limitation to watch for.
 
 ### `POST /api/v1/search`
 
@@ -174,14 +201,16 @@ Confidence isn't returned by the API — compute it yourself from what you got b
 3. **This is keyword search, not semantic search.** Term frequency drives `/search` ranking, not phrase meaning — retry with different literal keywords before concluding there's no coverage.
 4. **`mentions_penalty`/`mentions_permit` are heuristics** (keyword-based), not a legal determination that a penalty or permit requirement definitely does or doesn't apply — read the actual `text` before asserting either way.
 5. **If results are empty, say so.** Don't answer from general knowledge as if it came from this service.
-6. **Scope**: currently indexed is NYC Administrative Code Title 24 Chapter 2 (Noise Control) and NYC Health Code Article 161 (Animals) only. Say so explicitly if a question falls outside this — don't imply broader coverage.
+6. **Scope**: the entire NYC Administrative Code (all titles) and the entire NYC Health Code (all articles) are ingested — see [docs/COVERAGE.md](./docs/COVERAGE.md) in the source repo for the exact live manifest. If a search genuinely returns nothing, say so; don't assume it's a coverage gap before retrying with different literal keywords.
+7. **`is_action_allowed`'s `allowed` field can be `true`, `false`, or `null`.** `null` means no relevant provision was found — never treat it as "probably fine." `true` from an absence-of-restriction inference (no explicit prohibition found, `confidence: "medium"`) is a materially weaker claim than `true` from an explicit permission statement (`confidence: "high"`) — the `reasoning` field tells you which one you got. Because this tool ranks by shared keywords, a query overlapping an unrelated section on just one common word (e.g. "party" as in "a party to an action," or "roof" as a building material vs. a rooftop location) can surface an off-topic citation — always read `reasoning` and the cited text yourself before repeating the verdict; don't repeat `allowed` to a user as a legal conclusion without that check.
 
 ## How to use this service
 
-1. Pull the key terms (not the full sentence) from the user's question and call `POST /api/v1/search`, optionally filtered by `document_type`/`topic`/`agency` if you can infer them.
-2. If a result's `section_number` looks like the authoritative answer, call `GET /api/v1/sections/{section_number}` for its full text and `structural_summary`.
-3. If you need related context, call `GET /api/v1/sections/{section_number}/related`.
-4. If the question is specifically about penalties or permit requirements, call `POST /api/v1/penalties` or `POST /api/v1/permits` instead of a general search.
-5. If `/search` returns nothing relevant, retry with different literal keywords before concluding there's no coverage.
-6. Compose your final answer in the `{answer, sources, reasoning}` shape above, following every rule in the Rules section — especially never inventing a number or fact absent from the returned `text`.
-7. If a call returns `429`, wait for the number of seconds in the `Retry-After` header before retrying.
+1. If the question is a yes/no legality check on a described action ("can I...", "is it legal to...", "am I allowed to..."), call `POST /api/v1/is_action_allowed` with that action described in plain terms first — it's purpose-built for exactly this and does the search + rule evaluation for you.
+2. Otherwise, pull the key terms (not the full sentence) from the user's question and call `POST /api/v1/search`, optionally filtered by `document_type`/`topic`/`agency` if you can infer them.
+3. If a result's `section_number` looks like the authoritative answer, call `GET /api/v1/sections/{section_number}` for its full text and `structural_summary`.
+4. If you need related context, call `GET /api/v1/sections/{section_number}/related`.
+5. If the question is specifically about penalties or permit requirements (not a yes/no legality check), call `POST /api/v1/penalties` or `POST /api/v1/permits` instead of a general search.
+6. If `/search` or `/is_action_allowed` returns nothing relevant, retry with different literal keywords before concluding there's no coverage.
+7. Compose your final answer in the `{answer, sources, reasoning}` shape above, following every rule in the Rules section — especially never inventing a number or fact absent from the returned `text`, and never repeating `is_action_allowed`'s `allowed` field as a legal conclusion without reading its `reasoning` first.
+8. If a call returns `429`, wait for the number of seconds in the `Retry-After` header before retrying.

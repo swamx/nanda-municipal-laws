@@ -1,33 +1,17 @@
-import re
-
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.database import Database
 
 from app.db import LAWS_COLLECTION, get_db
 from app.models import RelatedLawsResponse, RelatedSection, SectionOut
+from app.section_lookup import get_section_chunks
+from app.text_structure import split_subsections
 
 router = APIRouter(tags=["sections"])
-
-# Splits body text into one bullet per top-level lettered/numbered subsection
-# (e.g. "(a)", "(b)", "(1)"), requiring the marker to follow a sentence
-# boundary so mid-sentence parenthetical cross-references like "as authorized
-# by §161.01 (a) of this Article" aren't mistaken for a new subsection.
-_SUBSECTION_SPLIT_RE = re.compile(r"(?<=[.;]\s)(?=\([a-z0-9]+\)\s)")
-
-
-def _structural_summary(text: str) -> list[str]:
-    parts = [p.strip() for p in _SUBSECTION_SPLIT_RE.split(text)]
-    return [p for p in parts if p]
-
-
-def _get_section_chunks(db: Database, section_number: str) -> list[dict]:
-    chunks = list(db[LAWS_COLLECTION].find({"type": "chunk", "section_number": section_number}))
-    return sorted(chunks, key=lambda c: c["chunk_index"])
 
 
 @router.get("/sections/{section_number}", response_model=SectionOut)
 def get_section(section_number: str, db: Database = Depends(get_db)) -> SectionOut:
-    chunks = _get_section_chunks(db, section_number)
+    chunks = get_section_chunks(db, section_number)
     if not chunks:
         raise HTTPException(status_code=404, detail="section not found")
 
@@ -51,7 +35,7 @@ def get_section(section_number: str, db: Database = Depends(get_db)) -> SectionO
         mentions_permit=any(c["mentions_permit"] for c in chunks),
         effective_date=first["effective_date"],
         repealed=any(c["repealed"] for c in chunks),
-        structural_summary=_structural_summary(full_text),
+        structural_summary=split_subsections(full_text),
         chunk_count=len(chunks),
         reasoning=(
             f"exact lookup by section_number={section_number!r}; structural_summary derived by "
@@ -63,7 +47,7 @@ def get_section(section_number: str, db: Database = Depends(get_db)) -> SectionO
 
 @router.get("/sections/{section_number}/related", response_model=RelatedLawsResponse)
 def get_related_laws(section_number: str, db: Database = Depends(get_db)) -> RelatedLawsResponse:
-    chunks = _get_section_chunks(db, section_number)
+    chunks = get_section_chunks(db, section_number)
     if not chunks:
         raise HTTPException(status_code=404, detail="section not found")
 

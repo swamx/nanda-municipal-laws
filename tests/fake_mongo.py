@@ -8,14 +8,20 @@ _WORD_RE = re.compile(r"\w+")
 def _text_score(doc: dict, query: str) -> float:
     """Approximates MongoDB's $text/textScore (title weighted over body) so
     tests can exercise the text_index retrieval path without a real index.
+
+    Matches on word boundaries, not plain substrings - naive `str.count()`
+    matched "dance" inside "accordance", a real false positive caught while
+    writing tests for is_action_allowed (same class of bug as
+    app/search_scoring.py and app/ingestion/enrich.py, fixed the same way).
     """
     words = _WORD_RE.findall(query.lower())
     title = doc.get("section_title", "").lower()
     body = doc.get("text", "").lower()
     score = 0.0
     for word in words:
-        score += title.count(word) * 5
-        score += body.count(word)
+        pattern = rf"\b{re.escape(word)}\b"
+        score += len(re.findall(pattern, title)) * 5
+        score += len(re.findall(pattern, body))
     return score
 
 

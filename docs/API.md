@@ -3,7 +3,7 @@
 Base URL (local dev): `http://localhost:8000`
 Base URL (deployed): `https://nanda-municipal-laws.vercel.app`
 
-All endpoints except `GET /` and `GET /skill.md` are under `/api/v1` and are rate-limited per client IP, in two separate buckets: `RATE_LIMIT_PER_MINUTE` (default **10**/min) for `/search`, `/sections/*`, `/penalties`, `/permits`, `/documents/*`, `/health`, and `/version`; `INGEST_RATE_LIMIT_PER_MINUTE` (default **1**/min) for `/ingest`, since it triggers outbound fetches and Atlas writes rather than just reads. Exceeding either returns `429` with a `Retry-After` header.
+All endpoints except `GET /` and `GET /skill.md` are under `/api/v1` and are rate-limited per client IP, in two separate buckets: `RATE_LIMIT_PER_MINUTE` (default **10**/min) for `/search`, `/is_action_allowed`, `/sections/*`, `/penalties`, `/permits`, `/documents/*`, `/health`, and `/version`; `INGEST_RATE_LIMIT_PER_MINUTE` (default **1**/min) for `/ingest`, since it triggers outbound fetches and Atlas writes rather than just reads. Exceeding either returns `429` with a `Retry-After` header.
 
 Every retrieval endpoint returns a `reasoning: str` field explaining *how* the result was mechanically derived (terms matched, filters applied, lookup type) — never an `answer` or `confidence` field. This API is deterministic and does not call an LLM; composing a final natural-language answer (with a confidence label) is the calling agent's job. See [SKILL.md](../SKILL.md) for the exact contract agents should follow.
 
@@ -18,7 +18,7 @@ curl -s http://localhost:8000/
 ```
 
 ```json
-{"name":"Municipal Legal Intelligence Service","version":"0.1.0","docs":"/docs","health":"/api/v1/health","skill":"/skill.md"}
+{"name":"Municipal Law Skill for Autonomous Agents","version":"0.1.0","docs":"/docs","health":"/api/v1/health","skill":"/skill.md"}
 ```
 
 ---
@@ -60,6 +60,47 @@ curl -s http://localhost:8000/api/v1/version
 ```json
 {"version": "0.1.0"}
 ```
+
+---
+
+## `POST /api/v1/is_action_allowed`
+
+The headline decision-support capability: determines whether a described action has an explicit statement about it in the ingested corpus. Deterministic — retrieval (keyword search via `app/retrieval.py`) plus rules (keyword-based prohibition/permission classification via `app/action_rules.py`), **not** LLM reasoning.
+
+Request body:
+
+| field | type | required | notes |
+|---|---|---|---|
+| `action` | string | yes | plain-language description, e.g. `"Keep backyard chickens"` |
+| `context` | object | no | accepted and echoed back for the caller's record-keeping; does not currently narrow the determination beyond what's textually relevant (no geographic/zoning-lookup capability — see "Not supported" below) |
+| `limit` | int | no | how many candidate sections to consider internally; default 5, max 20 |
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/is_action_allowed \
+  -H "Content-Type: application/json" -d '{"action": "Keep backyard chickens"}'
+```
+
+```json
+{
+  "action": "Keep backyard chickens",
+  "allowed": true,
+  "conditions": [
+    "(a) No person shall keep a live rooster, duck, goose or turkey in the City of New York except...",
+    "(c) Live rabbit and poultry markets. Live rabbits and poultry intended for sale shall not be kept on the same premises as a multiple dwelling..."
+  ],
+  "citations": [
+    {"section_number": "161.19", "section_title": "Keeping of livestock, live poultry and rabbits", "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=16", "document_type": "NYC Health Code", "matched_text": "§161.19 Keeping of livestock, live poultry and rabbits. (a) No person shall keep a live rooster..."}
+  ],
+  "reasoning": "§161.19 is the closest-matching provision, but contains no explicit prohibition or permission statement matching keywords in the requested action - this is an absence-of-restriction inference, not an affirmative statement. Read the full section text before relying on it.",
+  "confidence": "medium"
+}
+```
+
+`allowed` is `true`/`false` **only** when an explicit prohibition or permission statement was found (word-boundary keyword match against the closest-matching section's text); `null` when no relevant provision was found at all — silence is never treated as evidence of legality. `confidence` is `"high"` for an explicit statement backed by a decisively top-ranked section, `"medium"` for either an explicit statement with an ambiguous ranking or an absence-of-restriction inference, `"low"` when nothing relevant was found.
+
+**Known limitation**: because ranking is keyword-based, a query sharing even one common/generic word with an unrelated section (e.g. "party" as in "a party to an action" vs. a celebration; "roof" as a building material vs. a rooftop location) can surface an off-topic citation with a plausible-looking `allowed` value. The citation and matched text are always real (never fabricated), but may not actually be on-topic — callers should read `reasoning` before treating `allowed` as a final answer. See `tests/test_is_action_allowed.py::test_known_limitation_coincidental_common_word_can_still_match`, which pins this behavior deliberately rather than hiding it, and [DATA_SOURCE.md](./DATA_SOURCE.md) for how this was discovered.
+
+A small, explicitly curated synonym list (`app/action_rules.py::ACTION_QUERY_SYNONYMS`) bridges a handful of common colloquial terms to the statutory vocabulary actually used in the ingested text (e.g. "chicken"/"hen" → "poultry", since the real §161.19 text never uses the word "chicken"). This is not a general thesaurus — actions using vocabulary outside this small list fall back to the same literal-keyword-matching behavior as `/search`.
 
 ---
 

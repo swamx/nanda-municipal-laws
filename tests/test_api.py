@@ -29,7 +29,7 @@ def test_version(client):
 def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["name"] == "Municipal Legal Intelligence Service"
+    assert response.json()["name"] == "Municipal Law Skill for Autonomous Agents"
     assert response.json()["skill"] == "/skill.md"
 
 
@@ -37,7 +37,7 @@ def test_skill_md_served(client):
     response = client.get("/skill.md")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
-    assert response.text.startswith("# Municipal Legal Intelligence Service")
+    assert response.text.startswith("# Municipal Law Skill for Autonomous Agents")
     assert "/api/v1/ingest" not in response.text
 
 
