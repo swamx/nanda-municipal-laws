@@ -4,10 +4,10 @@ A lightweight FastAPI service that indexes real NYC municipal law text in MongoD
 
 Positioning: agent tool calls return structured facts with citations and mechanical `reasoning`, not "search → 14 PDFs, good luck." The backend never calls an LLM and never fabricates an answer — see [SKILL.md](./SKILL.md) for exactly how a calling agent should compose its final response from what this API returns.
 
-Scope, deliberately kept small:
-- **Keyword search only** (in-app TF-style keyword scoring over the stored chunks — no MongoDB text index, since the Atlas role used here doesn't grant `createIndex`) — no embeddings, vector DB, or LLM-synthesized answers. The API returns ranked results with citations and a `reasoning` string; the caller decides how to use them.
-- **Two real sources**: [nycadmincode.readthedocs.io](https://nycadmincode.readthedocs.io/) (CC0-licensed HTML mirror of the NYC Administrative Code — **Title 24, Chapter 2, Noise Control**) and first-party NYC Health Code PDFs at `nyc.gov` (**Article 161, Animals** — including §161.19, the chicken/poultry-keeping section). Two ingestion formats, one shared pipeline.
-- **Storage**: MongoDB (Atlas free tier works fine for low request volume) — a single `dl-laws` collection.
+Design:
+- **Deterministic search, no LLM in the loop**: `SEARCH_MODE=text_index` (default) uses native MongoDB `$text`/`textScore`; `in_app` uses a Python TF-style scorer instead — selectable per-request, no embeddings or vector DB either way. No fabricated answers, ever. The API returns ranked results with citations and a `reasoning` string; the caller decides how to use them.
+- **Two real sources, ingested in full**: [nycadmincode.readthedocs.io](https://nycadmincode.readthedocs.io/) (CC0-licensed HTML mirror of the **entire** NYC Administrative Code — all titles) and first-party NYC Health Code PDFs at `nyc.gov` (**all** articles, including Article 161/§161.19, the chicken/poultry-keeping section). Two ingestion formats, one shared pipeline. See [docs/COVERAGE.md](./docs/COVERAGE.md) for exactly what's ingested, generated live from MongoDB.
+- **Storage**: MongoDB (Atlas free tier — the full corpus, 668 documents / ~10,700 chunks, uses ~55 MB of the 512 MB M0 limit) — a single `dl-laws` collection.
 - **Hosting**: Vercel free/Hobby tier (zero-config FastAPI/ASGI support), or any ASGI host via `uvicorn`.
 - **Hardened for a public demo URL**: per-client rate limiting (10 req/min by default on read endpoints; a much stricter 1 req/min on `/ingest` since it triggers outbound fetches and Atlas writes), an optional shared-secret gate on `/ingest`, fast-fail Mongo timeouts, pinned dependencies, and a global exception handler that never leaks stack traces.
 
@@ -18,9 +18,9 @@ Scope, deliberately kept small:
 ```
 app/            FastAPI app: config, db, rate limiting, retrieval, models, routers, ingestion pipeline
 api/index.py    Vercel entrypoint (re-exports app.main:app)
-scripts/        seed_admin_code.py, seed_health_code.py - ingest both sources into MongoDB
+scripts/        crawl_and_seed_admin_code.py, seed_all_health_code.py, generate_coverage_report.py
 tests/          parser + ingestion + API + rate-limit + section/related/topic-filter tests (fake in-memory Mongo)
-docs/           architecture, API reference, deployment, data source
+docs/           architecture, API reference, deployment, data source, COVERAGE.md (generated)
 SKILL.md        agent-facing API reference (endpoints, curl, composing a final answer, usage steps)
 ```
 
@@ -55,11 +55,11 @@ Check `GET http://localhost:8000/api/v1/health` returns `{"status": "ok"}` (requ
 ### 4. Seed real law data
 
 ```
-python -m scripts.seed_admin_code
-python -m scripts.seed_health_code
+python -m scripts.crawl_and_seed_admin_code    # entire NYC Admin Code - takes a while (~30 min)
+python -m scripts.seed_all_health_code         # every NYC Health Code article - a few minutes
 ```
 
-The first ingests all 8 subchapters of NYC Admin Code Title 24 Chapter 2 (Noise Control), including § 24-222. The second ingests NYC Health Code Article 161 (Animals), including §161.19 — the chicken/poultry-keeping section. Both attempt to create supporting indexes along the way (best-effort; search works fine without them).
+The first crawls and ingests the **entire** NYC Administrative Code (all titles/chapters/subchapters — a few hundred pages). The second discovers and ingests **every** NYC Health Code article (including Article 161/§161.19, the chicken/poultry-keeping section). Both create a MongoDB text index along the way (best-effort). For a quick local smoke test instead of the full crawl, scope either down: `crawl_and_seed_admin_code.py --start-url "https://nycadmincode.readthedocs.io/t24/c02/"` or `seed_all_health_code.py --article 161`. After (re-)ingesting, run `python -m scripts.generate_coverage_report` to refresh [docs/COVERAGE.md](./docs/COVERAGE.md) with what's actually in the database.
 
 ### 5. Try it
 
@@ -103,7 +103,7 @@ All endpoints except `/` and `/skill.md` are under `/api/v1` and rate-limited pe
 | `/skill.md` | GET | Serves the root `SKILL.md` as plain text (not rate-limited) |
 | `/api/v1/health` | GET | `{"status": "ok" \| "degraded"}` based on live Mongo reachability |
 | `/api/v1/version` | GET | `{"version": "..."}` |
-| `/api/v1/search` | POST | `{query, limit?, title_num?, chapter_num?, document_type?, agency?, topic?}` → ranked `results` + `reasoning` |
+| `/api/v1/search` | POST | `{query, limit?, title_num?, chapter_num?, document_type?, agency?, topic?, search_mode?}` → ranked `results` + `reasoning` |
 | `/api/v1/sections/{section_number}` | GET | Exact lookup by section number — full metadata, cross-references, and a deterministic `structural_summary` |
 | `/api/v1/sections/{section_number}/related` | GET | Resolves that section's cross-references into their own citations |
 | `/api/v1/penalties` | POST | `{query?, topic?}` → results filtered to sections flagged as mentioning a penalty |
@@ -114,6 +114,6 @@ All endpoints except `/` and `/skill.md` are under `/api/v1` and rate-limited pe
 
 **Not supported** (documented, not faked): zoning lookup by address (needs GIS/PLUTO data, a different domain), and comparing two revisions of a section over time (needs historical snapshots this pipeline doesn't retain).
 
-## Extending coverage
+## Coverage
 
-**Admin Code**: call `POST /api/v1/ingest` with additional `nycadmincode.readthedocs.io` chapter/subchapter URLs, or add them to `scripts/seed_admin_code.py`. **Health Code**: any `health-code-article{N}.pdf` follows the same URL pattern and parses automatically (article metadata is derived from the PDF's own header text, not hardcoded) — add it to `scripts/seed_health_code.py` or `POST /api/v1/ingest` directly. Re-ingesting an already-seen URL is idempotent. Details: [docs/DATA_SOURCE.md](./docs/DATA_SOURCE.md).
+Both sources are ingested **in full** — the entire NYC Administrative Code (via `scripts/crawl_and_seed_admin_code.py`, which crawls the site's own table of contents rather than assuming a fixed depth) and every NYC Health Code article (via `scripts/seed_all_health_code.py`, which discovers the article list from `nyc.gov` rather than hardcoding it). **Exact current coverage** — every title/chapter/subchapter/article actually ingested, with section counts and links — is in [docs/COVERAGE.md](./docs/COVERAGE.md), generated live from MongoDB so it can't drift out of sync. `POST /api/v1/ingest` also works for ad hoc single-page/article additions. Re-ingesting an already-seen URL is idempotent. Details and known formatting quirks discovered along the way: [docs/DATA_SOURCE.md](./docs/DATA_SOURCE.md).

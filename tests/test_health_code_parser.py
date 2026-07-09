@@ -51,3 +51,26 @@ def test_parse_health_code_section_161_17_title_reassembled_from_wrapped_lines()
 
     assert "physical" in section.section_title.lower()
     assert "facilities and maintenance" in section.section_title.lower()
+
+
+ARTICLE_1_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "health_code_article1.txt"
+ARTICLE_1_URL = "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article1.pdf"
+
+
+def test_parse_health_code_handles_single_space_heading_format():
+    # Article 1 uses "§1.01 Short title." (one space) instead of Article 161's
+    # "§161.19  Keeping..." (two spaces) - a real formatting inconsistency
+    # between articles caught while ingesting the full Health Code. Article 1
+    # also has no table-of-contents block at all (each heading appears once).
+    pages = ARTICLE_1_FIXTURE_PATH.read_text(encoding="utf-8").split("\n\n===PAGE BREAK===\n\n")
+    metadata, sections = parse_health_code(pages, ARTICLE_1_URL)
+
+    assert metadata.article_num == "1"
+    assert metadata.article_name == "SHORT TITLE AND GENERAL DEFINITIONS"
+
+    section_numbers = [s.section_number for s in sections]
+    assert section_numbers == ["1.01", "1.03"]
+
+    short_title = next(s for s in sections if s.section_number == "1.01")
+    assert short_title.section_title == "Short title"
+    assert "New York City Health Code" in short_title.text

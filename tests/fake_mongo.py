@@ -1,4 +1,22 @@
+import re
+
 from bson import ObjectId
+
+_WORD_RE = re.compile(r"\w+")
+
+
+def _text_score(doc: dict, query: str) -> float:
+    """Approximates MongoDB's $text/textScore (title weighted over body) so
+    tests can exercise the text_index retrieval path without a real index.
+    """
+    words = _WORD_RE.findall(query.lower())
+    title = doc.get("section_title", "").lower()
+    body = doc.get("text", "").lower()
+    score = 0.0
+    for word in words:
+        score += title.count(word) * 5
+        score += body.count(word)
+    return score
 
 
 class FakeCursor:
@@ -61,7 +79,31 @@ class FakeLawsCollection:
 
     def find(self, filter: dict | None = None, projection: dict | None = None) -> FakeCursor:
         filter = filter or {}
-        results = [dict(doc) for doc in self._docs if self._matches(doc, filter)]
+        text_query = None
+        equality_filter = {}
+        for key, value in filter.items():
+            if key == "$text":
+                text_query = value["$search"]
+            else:
+                equality_filter[key] = value
+
+        results = []
+        for doc in self._docs:
+            if not self._matches(doc, equality_filter):
+                continue
+            if text_query is not None:
+                score = _text_score(doc, text_query)
+                if score <= 0:
+                    continue
+                scored = dict(doc)
+                scored["score"] = score
+                results.append(scored)
+            else:
+                results.append(dict(doc))
+
+        if text_query is not None:
+            results.sort(key=lambda d: d["score"], reverse=True)
+
         return FakeCursor(results)
 
     @staticmethod

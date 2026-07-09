@@ -19,5 +19,6 @@ def search(payload: SearchRequest, db: Database = Depends(get_db)) -> SearchResp
         document_type=payload.document_type,
         agency=payload.agency,
         topic=payload.topic,
+        search_mode=payload.search_mode,
     )
     return SearchResponse(query=payload.query, results=results, count=len(results), reasoning=reasoning)

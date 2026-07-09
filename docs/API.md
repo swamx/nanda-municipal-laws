@@ -78,6 +78,7 @@ Request body:
 | `document_type` | string | no | `"NYC Administrative Code"` or `"NYC Health Code"` |
 | `agency` | string | no | e.g. `"Department of Health and Mental Hygiene (DOHMH)"` |
 | `topic` | string | no | chapter/article name, e.g. `"ANIMALS"` |
+| `search_mode` | string | no | `"text_index"` (default) or `"in_app"` — overrides `SEARCH_MODE` for this call only; see [ARCHITECTURE.md](./ARCHITECTURE.md#search-two-interchangeable-modes-text-by-default) |
 
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/search \
@@ -166,7 +167,7 @@ A reference to a section outside the ingested corpus is included with `"resolved
 
 ## `POST /api/v1/penalties`
 
-Filters to chunks flagged `mentions_penalty: true` (keyword heuristic — see [DATA_SOURCE.md](./DATA_SOURCE.md#known-limitation-mentions_penaltymentions_permit-are-keyword-heuristics)). Optional `query` (adds term-frequency ranking on top of the filter) and `topic`.
+Filters to chunks flagged `mentions_penalty: true` (keyword heuristic — see [DATA_SOURCE.md](./DATA_SOURCE.md#known-limitation-mentions_penaltymentions_permit-are-keyword-heuristics)). Optional `query` (adds ranking on top of the filter, `text_index` or `in_app` per `search_mode`/`SEARCH_MODE`) and `topic`.
 
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/penalties \

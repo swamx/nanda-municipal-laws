@@ -16,6 +16,7 @@ def find_penalties(payload: TopicFilterRequest, db: Database = Depends(get_db)) 
         limit=payload.limit,
         topic=payload.topic,
         mentions_penalty=True,
+        search_mode=payload.search_mode,
     )
     return TopicFilterResponse(
         results=results,

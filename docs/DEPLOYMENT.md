@@ -20,6 +20,7 @@
 | `INGEST_MAX_URLS` | no | `10` | Hard cap on URLs per `/ingest` call, to stay inside the serverless execution budget |
 | `RATE_LIMIT_PER_MINUTE` | no | `10` | Requests/minute per client IP for `/search`, `/documents/*`, `/health`, `/version` |
 | `INGEST_RATE_LIMIT_PER_MINUTE` | no | `1` | Requests/minute per client IP for `/ingest` specifically — its own stricter bucket, since it triggers outbound fetches and Atlas writes |
+| `SEARCH_MODE` | no | `text_index` | `text_index` (native MongoDB `$text`) or `in_app` (Python TF scoring). Overridable per-request via `search_mode` in the request body. |
 | `APP_VERSION` | no | `0.1.0` | Reported by `/` and `/api/v1/version` |
 
 Copy `.env.example` to `.env` and fill these in for local development.
@@ -33,10 +34,11 @@ pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 ```
 
-Seed real data:
+Seed real data (the full crawls below take a while — pass `--limit N` to either for a quick local smoke test instead):
 
 ```bash
-python -m scripts.seed_admin_code
+python -m scripts.crawl_and_seed_admin_code
+python -m scripts.seed_all_health_code
 ```
 
 ## 4. Run tests

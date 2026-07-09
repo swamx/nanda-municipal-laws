@@ -11,6 +11,9 @@ class SearchRequest(BaseModel):
     document_type: str | None = None
     agency: str | None = None
     topic: str | None = None
+    # Overrides settings.search_mode ("text_index" default, or "in_app")
+    # for this call only. Invalid values are ignored (fall back to default).
+    search_mode: str | None = None
 
 
 class SearchResultItem(BaseModel):
@@ -126,6 +129,7 @@ class TopicFilterRequest(BaseModel):
     query: str | None = None
     topic: str | None = None
     limit: int = Field(default=10, ge=1, le=50)
+    search_mode: str | None = None
 
 
 class TopicFilterResponse(BaseModel):

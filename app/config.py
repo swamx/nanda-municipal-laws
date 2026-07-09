@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 10
     ingest_rate_limit_per_minute: int = 1
 
+    # "text_index" (default): native MongoDB $text/textScore search - scales
+    # to large corpora, requires the text index in ensure_indexes() to exist.
+    # "in_app": Python TF-style scoring (app/search_scoring.py) - no index
+    # dependency, but fetches every filter-matching chunk into memory per
+    # call, so it degrades at large scale. Either can also be overridden
+    # per-request via SearchRequest.search_mode / TopicFilterRequest.search_mode.
+    search_mode: str = "text_index"
+
     app_version: str = "0.1.0"
 
     @property

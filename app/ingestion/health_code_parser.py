@@ -5,13 +5,22 @@ from app.ingestion.parser import SectionChunk, SourceMetadata
 
 HEALTH_CODE_AGENCY = "Department of Health and Mental Hygiene (DOHMH)"
 
-_ARTICLE_RE = re.compile(r"ARTICLE\s+(\d+)\s*\n\s*([A-Z][A-Z \-]+)\s*\n")
+# Article name lines can contain punctuation beyond letters/spaces/hyphens
+# (e.g. Article 48: "DAY CAMPS, OVERNIGHT CAMPS, AND TRAVELING DAY CAMPS" has
+# commas) - confirmed against a real article that failed to match a stricter
+# [A-Z \-]+ character class, so this just takes the whole line. Also
+# case-insensitive: most articles say "ARTICLE 121", but Article 121 itself
+# is typeset "Article 121" (title case) - confirmed against real text.
+_ARTICLE_RE = re.compile(r"ARTICLE\s+(\d+)\s*\n\s*([^\n]+)\n", re.IGNORECASE)
 
 # Matches a section heading ("§161.19  Title spanning\nup to two lines.") at the
 # start of a line. Titles may wrap across a couple of lines in the source PDF
 # (confirmed against a real fetched Health Code article), so the title group
-# allows up to two full lines before the sentence-ending period.
-_HEADING_RE = re.compile(r"(?:^|\n)§(\d+\.\d+)\s\s+((?:[^\n]*\n){0,2}?[^\n]*?\.)\s*\n", re.MULTILINE)
+# allows up to two full lines before the sentence-ending period. Spacing
+# after the section number varies between articles - Article 161 uses two
+# spaces ("§161.19  Keeping..."), Article 1 uses one ("§1.01 Short title.") -
+# confirmed against both real articles, so this requires only one or more.
+_HEADING_RE = re.compile(r"(?:^|\n)§(\d+\.\d+)\s+((?:[^\n]*\n){0,2}?[^\n]*?\.)\s*\n", re.MULTILINE)
 
 
 def _parse_article_metadata(text: str) -> SourceMetadata:

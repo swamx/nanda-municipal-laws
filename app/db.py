@@ -29,10 +29,14 @@ def ping(db: Database | None = None) -> bool:
     return True
 
 
+TEXT_INDEX_NAME = "chunks_text_idx"
+
+
 def ensure_indexes(db: Database | None = None) -> None:
-    """Best-effort: some Atlas roles (e.g. this project's) don't grant
-    createIndex, in which case search falls back to in-app scoring (see
-    app/search_scoring.py) instead of relying on a text index.
+    """Best-effort: if the Atlas role in use doesn't grant createIndex, a
+    warning is logged and search falls back to in-app scoring (see
+    app/search_scoring.py and app/retrieval.py) instead of relying on this
+    text index.
     """
     db = db if db is not None else get_db()
     laws = db[LAWS_COLLECTION]
@@ -49,6 +53,14 @@ def ensure_indexes(db: Database | None = None) -> None:
         (
             "section_number",
             {"name": "chunks_section_number_idx", "partialFilterExpression": {"type": "chunk"}},
+        ),
+        (
+            [("section_title", "text"), ("text", "text")],
+            {
+                "name": TEXT_INDEX_NAME,
+                "weights": {"section_title": 5, "text": 1},
+                "partialFilterExpression": {"type": "chunk"},
+            },
         ),
     ]
 
