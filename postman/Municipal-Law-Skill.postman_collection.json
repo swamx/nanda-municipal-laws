@@ -1,0 +1,707 @@
+{
+  "info": {
+    "name": "Municipal Law Skill for Autonomous Agents",
+    "description": "Infra/integration test suite for the Municipal Law Skill API. Targets the live Vercel deployment by default (see the {{base_url}} collection variable, or use the Vercel/Local environment files in postman/environments/). Grounded in real, verified behavior against the full ingested NYC Administrative Code + NYC Health Code corpus - not invented expected values. See postman/README.md for how to run this with Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://nanda-municipal-laws.vercel.app", "type": "string" },
+    { "key": "document_id", "value": "", "type": "string" },
+    { "key": "rate_limit_counter", "value": "0", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Service Info",
+      "item": [
+        {
+          "name": "GET / - root service info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('name reflects rebrand', function () {",
+                  "  pm.expect(body.name).to.eql('Municipal Law Skill for Autonomous Agents');",
+                  "});",
+                  "pm.test('links to /skill.md and /api/v1/health', function () {",
+                  "  pm.expect(body.skill).to.eql('/skill.md');",
+                  "  pm.expect(body.health).to.eql('/api/v1/health');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /skill.md - agent-facing reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/skill.md"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('content-type is text/plain', function () {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/plain');",
+                  "});",
+                  "pm.test('starts with rebranded title', function () {",
+                  "  pm.expect(pm.response.text()).to.match(/^# Municipal Law Skill for Autonomous Agents/);",
+                  "});",
+                  "pm.test('does not document /ingest to agents', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('/api/v1/ingest');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/health - liveness + Mongo reachability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('database is reachable (status: ok)', function () {",
+                  "  pm.expect(body.status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/version"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('version field present', function () {",
+                  "  pm.expect(pm.response.json()).to.have.property('version');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. is_action_allowed (headline capability)",
+      "item": [
+        {
+          "name": "Keep backyard chickens - absence-of-restriction, medium confidence",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"action\": \"Keep backyard chickens\"}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('allowed is true (absence-of-restriction inference)', function () {",
+                  "  pm.expect(body.allowed).to.eql(true);",
+                  "});",
+                  "pm.test('confidence is medium, not high (silence is a weaker claim)', function () {",
+                  "  pm.expect(body.confidence).to.eql('medium');",
+                  "});",
+                  "pm.test('cites section 161.19', function () {",
+                  "  pm.expect(body.citations[0].section_number).to.eql('161.19');",
+                  "});",
+                  "pm.test('surfaces the rooster prohibition as a condition, not a blocker', function () {",
+                  "  pm.expect(body.conditions.join(' ').toLowerCase()).to.include('rooster');",
+                  "});",
+                  "pm.test('never fabricates the \"6 hens\" myth', function () {",
+                  "  const allText = JSON.stringify(body).toLowerCase();",
+                  "  pm.expect(allText).to.not.include('6 hens');",
+                  "  pm.expect(allText).to.not.include('maximum');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Keep a rooster in my apartment - explicit prohibition, high confidence",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"action\": \"keep a rooster in my apartment\"}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('allowed is false (explicit prohibition found)', function () {",
+                  "  pm.expect(body.allowed).to.eql(false);",
+                  "});",
+                  "pm.test('cites section 161.19', function () {",
+                  "  pm.expect(body.citations[0].section_number).to.eql('161.19');",
+                  "});",
+                  "pm.test('reasoning mentions the prohibition', function () {",
+                  "  pm.expect(body.reasoning.toLowerCase()).to.include('rooster');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unrelated action - unclear, never a guess from silence",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"action\": \"juggle flaming torches while unicycling on the moon\"}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('allowed is null (unclear, no relevant provision found)', function () {",
+                  "  pm.expect(body.allowed).to.eql(null);",
+                  "});",
+                  "pm.test('confidence is low', function () {",
+                  "  pm.expect(body.confidence).to.eql('low');",
+                  "});",
+                  "pm.test('no citations fabricated', function () {",
+                  "  pm.expect(body.citations).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "KNOWN LIMITATION - homonym keyword can select an irrelevant section",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"action\": \"launch a satellite into orbit from my roof\"}"
+            },
+            "url": "{{base_url}}/api/v1/is_action_allowed"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// This is a documented, known limitation (see docs/DATA_SOURCE.md), not a",
+                  "// bug fix target: \"roof\" as a building material coincidentally matches an",
+                  "// unrelated construction-code section for a query using \"roof\" as a rooftop",
+                  "// location. We only assert the response is well-formed and never fabricates",
+                  "// a citation - not that the determination is topically correct.",
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('confidence is never high for this kind of coincidental match', function () {",
+                  "  pm.expect(body.confidence).to.not.eql('high');",
+                  "});",
+                  "pm.test('citation, if present, is a real section (never fabricated)', function () {",
+                  "  if (body.citations.length > 0) {",
+                  "    pm.expect(body.citations[0]).to.have.property('section_number');",
+                  "    pm.expect(body.citations[0]).to.have.property('url');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Search",
+      "item": [
+        {
+          "name": "Search Health Code for chicken/poultry keeping",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"query\": \"rooster keeping poultry\", \"document_type\": \"NYC Health Code\"}"
+            },
+            "url": "{{base_url}}/api/v1/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('top result is section 161.19', function () {",
+                  "  pm.expect(body.results[0].section_number).to.eql('161.19');",
+                  "});",
+                  "pm.test('reasoning explains the match mechanically', function () {",
+                  "  pm.expect(body.reasoning).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('captures document_id for the Documents folder', function () {",
+                  "  pm.collectionVariables.set('document_id', body.results[0].document_id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Admin Code for construction noise hours",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"query\": \"after hours weekend limits construction work\", \"document_type\": \"NYC Administrative Code\"}"
+            },
+            "url": "{{base_url}}/api/v1/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('top result is section 24-222', function () {",
+                  "  pm.expect(body.results[0].section_number).to.eql('24-222');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search across the full corpus - unfiltered taxicab query",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"query\": \"taxicab for hire vehicle license\"}"
+            },
+            "url": "{{base_url}}/api/v1/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('finds results from the full Admin Code (not just a curated slice)', function () {",
+                  "  pm.expect(body.count).to.be.above(0);",
+                  "  pm.expect(body.results[0].document_type).to.eql('NYC Administrative Code');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search with explicit in_app mode override",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"query\": \"rooster keeping poultry\", \"document_type\": \"NYC Health Code\", \"search_mode\": \"in_app\"}"
+            },
+            "url": "{{base_url}}/api/v1/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('reasoning confirms in-app scoring mode was used', function () {",
+                  "  pm.expect(body.reasoning).to.include('in-app scoring');",
+                  "});",
+                  "pm.test('still surfaces section 161.19 top', function () {",
+                  "  pm.expect(body.results[0].section_number).to.eql('161.19');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Sections",
+      "item": [
+        {
+          "name": "GET /sections/161.19 - exact lookup + structural_summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/sections/161.19"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('metadata is correct', function () {",
+                  "  pm.expect(body.document_type).to.eql('NYC Health Code');",
+                  "  pm.expect(body.agency).to.eql('Department of Health and Mental Hygiene (DOHMH)');",
+                  "  pm.expect(body.mentions_penalty).to.eql(false);",
+                  "});",
+                  "pm.test('cross_references includes 161.01', function () {",
+                  "  pm.expect(body.cross_references).to.include('161.01');",
+                  "});",
+                  "pm.test('structural_summary has one bullet per lettered subsection', function () {",
+                  "  pm.expect(body.structural_summary.length).to.be.at.least(3);",
+                  "});",
+                  "pm.test('never fabricates the \"6 hens\" myth', function () {",
+                  "  const t = body.text.toLowerCase();",
+                  "  pm.expect(t).to.not.include('6 hens');",
+                  "  pm.expect(t).to.not.include('maximum');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /sections/161.19/related - cross-reference resolution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/sections/161.19/related"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('resolves 161.01 within the corpus', function () {",
+                  "  const ref = body.related.find(r => r.section_number === '161.01');",
+                  "  pm.expect(ref).to.not.be.undefined;",
+                  "  pm.expect(ref.resolved).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /sections/999.99 - 404 for unknown section",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/sections/999.99"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Topic Filters",
+      "item": [
+        {
+          "name": "POST /penalties - filtered to mentions_penalty=true",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"topic\": \"NOISE CONTROL\"}"
+            },
+            "url": "{{base_url}}/api/v1/penalties"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('reasoning confirms the penalty filter was applied', function () {",
+                  "  pm.expect(body.reasoning).to.include('mentions_penalty=true');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /permits - surfaces the animal permits section",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"query\": \"keep certain animals\"}"
+            },
+            "url": "{{base_url}}/api/v1/permits"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('reasoning confirms the permit filter was applied', function () {",
+                  "  pm.expect(body.reasoning).to.include('mentions_permit=true');",
+                  "});",
+                  "pm.test('surfaces section 161.09 (Permits to keep certain animals)', function () {",
+                  "  const found = body.results.some(r => r.section_number === '161.09');",
+                  "  pm.expect(found).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Documents (chained from Search)",
+      "item": [
+        {
+          "name": "GET /documents/{{document_id}}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/documents/{{document_id}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('document_id')) {",
+                  "  console.warn('document_id is empty - run the \"3. Search\" folder first to populate it.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('has document_type and source_url', function () {",
+                  "  pm.expect(body).to.have.property('document_type');",
+                  "  pm.expect(body).to.have.property('source_url');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /documents/{{document_id}}/chunks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/documents/{{document_id}}/chunks"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('returns a non-empty array of chunks', function () {",
+                  "  pm.expect(body).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /documents/000000000000000000000000 - 404 for invalid id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/documents/000000000000000000000000"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Ingest (manual/optional - do not run in automated CI)",
+      "description": "POST /ingest triggers real outbound fetches and Atlas writes, and is rate-limited to 1 request/minute in its own bucket. Run this folder manually and deliberately, not as part of an automated suite - it's excluded from any 'Run whole collection' workflow you should wire into CI.",
+      "item": [
+        {
+          "name": "Re-ingest a known-good Health Code article (idempotent)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"urls\": [\"https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf\"]}"
+            },
+            "url": "{{base_url}}/api/v1/ingest"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Expect either 200 (ok, idempotent re-ingest) or 429 (if you've already",
+                  "// used this minute's ingest quota) - both are acceptable outcomes here.",
+                  "pm.test('status is 200 or 429', function () {",
+                  "  pm.expect([200, 429]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('reports ok status for the URL', function () {",
+                  "    pm.expect(body.results[0].status).to.eql('ok');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Rate Limiting (stress test - consumes your 10-req/min budget)",
+      "description": "Self-looping request that calls /api/v1/health 11 times in a row using postman.setNextRequest(), asserting the first 10 succeed and the 11th returns 429 with a Retry-After header. Run this folder in isolation (Collection Runner, this folder only) - running it alongside other requests in the same minute will eat into their rate-limit budget too, and running the whole collection back-to-back may trigger this before you intend to test it.",
+      "item": [
+        {
+          "name": "Rate Limit Probe (loops itself 11x)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let count = parseInt(pm.collectionVariables.get('rate_limit_counter') || '0') + 1;",
+                  "pm.collectionVariables.set('rate_limit_counter', count);",
+                  "",
+                  "if (count <= 10) {",
+                  "  pm.test(`request ${count}/11 succeeds (200)`, function () {",
+                  "    pm.response.to.have.status(200);",
+                  "  });",
+                  "} else {",
+                  "  pm.test('request 11/11 is rate limited (429)', function () {",
+                  "    pm.response.to.have.status(429);",
+                  "  });",
+                  "  pm.test('Retry-After header present', function () {",
+                  "    pm.expect(pm.response.headers.has('Retry-After')).to.eql(true);",
+                  "  });",
+                  "}",
+                  "",
+                  "if (count < 11) {",
+                  "  postman.setNextRequest('Rate Limit Probe (loops itself 11x)');",
+                  "} else {",
+                  "  postman.setNextRequest(null);",
+                  "  pm.collectionVariables.set('rate_limit_counter', '0');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
