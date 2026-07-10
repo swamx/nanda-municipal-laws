@@ -106,6 +106,54 @@ def test_decide_route_defaults_needs_full_text_to_false(monkeypatch):
     assert decision.needs_full_text is False
 
 
+def test_decide_route_parses_full_text_count(monkeypatch):
+    monkeypatch.setattr(
+        router,
+        "ask_structured",
+        lambda prompt, **kwargs: {
+            "endpoint": "penalties",
+            "query_or_action": "garbage disposal",
+            "needs_full_text": True,
+            "full_text_count": 3,
+            "reasoning": "broad question, could match littering, dumping, or refuse storage",
+        },
+    )
+
+    decision = router.decide_route(
+        "what is the penalty for garbage not disposed correctly, give me document snippet as well"
+    )
+
+    assert decision.full_text_count == 3
+
+
+def test_decide_route_defaults_full_text_count_to_one(monkeypatch):
+    monkeypatch.setattr(
+        router,
+        "ask_structured",
+        lambda prompt, **kwargs: {"endpoint": "sections", "query_or_action": "161.19", "reasoning": "x"},
+    )
+
+    decision = router.decide_route("show me section 161.19")
+
+    assert decision.full_text_count == 1
+
+
+def test_decide_route_rejects_full_text_count_out_of_range(monkeypatch):
+    monkeypatch.setattr(
+        router,
+        "ask_structured",
+        lambda prompt, **kwargs: {
+            "endpoint": "search",
+            "query_or_action": "noise",
+            "full_text_count": 6,
+            "reasoning": "x",
+        },
+    )
+
+    with pytest.raises(ValidationError):
+        router.decide_route("anything")
+
+
 def test_decide_route_raises_when_claude_returns_an_invalid_endpoint(monkeypatch):
     monkeypatch.setattr(
         router,

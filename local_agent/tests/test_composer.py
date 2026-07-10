@@ -45,8 +45,9 @@ def test_compose_answer_includes_the_raw_api_response_and_skill_md_in_the_prompt
     # them without dropping the citation/caveat content.
     assert "concise" in captured["system_prompt"].lower()
     # Instructs the composer to prefer the enriched full-text follow-up
-    # (see agent.py::_maybe_attach_full_text) over a truncated snippet.
-    assert "full_text_of_top_result" in captured["system_prompt"]
+    # (see agent.py::_maybe_attach_full_text) over a truncated snippet, and
+    # to consider all entries since needs_full_text can fetch more than one.
+    assert "full_text_of_top_results" in captured["system_prompt"]
 
 
 def test_compose_answer_passes_model_through(monkeypatch):

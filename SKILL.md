@@ -197,7 +197,7 @@ Confidence isn't returned by the API — compute it yourself from what you got b
 ## Rules
 
 1. **Never state a fact or number that isn't literally present in the returned `text`.** A real, cautionary example: it's popular internet folklore that NYC limits backyard chickens to "a maximum of 6 hens" — the real text of §161.19 states no such number. It only prohibits keeping a live rooster, duck, goose, or turkey outside specific exceptions, and says nothing restricting hens. If you (or the user) assume a number, verify it against the returned `text` before repeating it — if it's not there, don't say it.
-2. **Always cite `section_number` and `url`** next to anything you quote or paraphrase.
+2. **Always cite `section_number` and `url`** next to anything you quote or paraphrase. `/search`, `/penalties`, and `/permits` return a ranked `snippet` per result, which can be truncated — if you need an exact dollar amount, fine, or precise statutory wording (not just a general answer), follow up with `GET /sections/{section_number}` for that result's full, untruncated `text` before quoting a number. Don't present a cut-off snippet as if it were the complete provision.
 3. **This is keyword search, not semantic search.** Term frequency drives `/search` ranking, not phrase meaning — retry with different literal keywords before concluding there's no coverage.
 4. **`mentions_penalty`/`mentions_permit` are heuristics** (keyword-based), not a legal determination that a penalty or permit requirement definitely does or doesn't apply — read the actual `text` before asserting either way.
 5. **If results are empty, say so.** Don't answer from general knowledge as if it came from this service.
@@ -210,7 +210,7 @@ Confidence isn't returned by the API — compute it yourself from what you got b
 2. Otherwise, pull the key terms (not the full sentence) from the user's question and call `POST /api/v1/search`, optionally filtered by `document_type`/`topic`/`agency` if you can infer them.
 3. If a result's `section_number` looks like the authoritative answer, call `GET /api/v1/sections/{section_number}` for its full text and `structural_summary`.
 4. If you need related context, call `GET /api/v1/sections/{section_number}/related`.
-5. If the question is specifically about penalties or permit requirements (not a yes/no legality check), call `POST /api/v1/penalties` or `POST /api/v1/permits` instead of a general search.
+5. If the question is specifically about penalties or permit requirements (not a yes/no legality check), call `POST /api/v1/penalties` or `POST /api/v1/permits` instead of a general search. If the user wants the exact amount or wording (not just which section applies), follow up with `GET /api/v1/sections/{section_number}` on the most relevant result(s) — see Rule 2.
 6. If `/search` or `/is_action_allowed` returns nothing relevant, retry with different literal keywords before concluding there's no coverage.
 7. Compose your final answer in the `{answer, sources, reasoning}` shape above, following every rule in the Rules section — especially never inventing a number or fact absent from the returned `text`, and never repeating `is_action_allowed`'s `allowed` field as a legal conclusion without reading its `reasoning` first.
 8. If a call returns `429`, wait for the number of seconds in the `Retry-After` header before retrying.

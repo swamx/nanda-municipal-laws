@@ -40,10 +40,26 @@ class RoutingDecision(BaseModel):
             "statutory wording, or an explicit 'document snippet'/quote - not just a general "
             "informational answer. Only meaningful for the search/penalties/permits endpoints, "
             "whose results are ranked snippets that can be truncated. When true, the agent will "
-            "automatically follow up with a full-text lookup (GET /sections/{section_number}) "
-            "on the top result before composing, instead of quoting a possibly-truncated snippet. "
-            "is_action_allowed/sections/sections_related already return full text, so this has no "
-            "effect for those endpoints."
+            "automatically follow up with full-text lookups (GET /sections/{section_number}) on "
+            "the top `full_text_count` results before composing, instead of quoting a possibly-"
+            "truncated snippet. is_action_allowed/sections/sections_related already return full "
+            "text, so this has no effect for those endpoints."
+        ),
+    )
+    full_text_count: int = Field(
+        default=1,
+        ge=1,
+        le=5,
+        description=(
+            "How many of the top search/penalties/permits results to fetch full text for, when "
+            "needs_full_text is true. Use 1 for a question that clearly maps to a single section "
+            "(e.g. a specific, narrow violation). Use 2-3 when the question is broad enough that "
+            "multiple distinct sections could plausibly apply (e.g. 'penalty for garbage not "
+            "disposed correctly' could mean littering (§16-118), illegal dumping (§16-119), or "
+            "improper commercial refuse storage - fetching just the single top-ranked result risks "
+            "missing the one the user actually meant, since keyword ranking doesn't understand "
+            "which of several similar-sounding sections is most relevant). Has no effect when "
+            "needs_full_text is false."
         ),
     )
     reasoning: str = Field(description="Why this endpoint (and not another) was chosen.")

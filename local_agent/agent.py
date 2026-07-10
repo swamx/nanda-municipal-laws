@@ -40,25 +40,38 @@ class Agent:
 
     def _maybe_attach_full_text(self, decision: RoutingDecision, response: dict) -> dict:
         """When the router flagged `needs_full_text` (the user wants an exact
-        amount/quote, not just a snippet), fetch the top result's full,
-        untruncated text via GET /sections/{section_number} and attach it so
-        the composer can quote precisely instead of a possibly-truncated
-        search/penalties/permits snippet.
+        amount/quote, not just a snippet), fetch the top `full_text_count`
+        results' full, untruncated text via GET /sections/{section_number}
+        and attach them so the composer can quote precisely instead of a
+        possibly-truncated search/penalties/permits snippet. The router
+        decides the count: a broad question (e.g. "penalty for garbage not
+        disposed correctly") can plausibly match several distinct sections
+        (littering vs. dumping vs. commercial refuse), and keyword ranking
+        alone doesn't reliably put the one the user actually meant on top -
+        fetching just the top-1 result risks quoting the wrong section's
+        full text while citing the right one by name only.
 
-        Fails open: if the follow-up lookup errors for any reason, the
-        original (snippet-only) response is returned unchanged rather than
-        failing the whole turn over an enrichment step.
+        Fails open per-lookup: if a follow-up lookup errors, that one
+        section is skipped rather than failing the whole turn over an
+        enrichment step. If every lookup fails, the original
+        (snippet-only) response is returned unchanged.
         """
         if not decision.needs_full_text:
             return response
         results = response.get("results") or []
         if not results:
             return response
-        section_number = results[0].get("section_number")
-        if not section_number:
+
+        full_texts = []
+        for result in results[: decision.full_text_count]:
+            section_number = result.get("section_number")
+            if not section_number:
+                continue
+            try:
+                full_texts.append(self.api_client.get_section(section_number))
+            except Exception:  # noqa: BLE001 - enrichment only, never fail the turn over one bad lookup
+                continue
+
+        if not full_texts:
             return response
-        try:
-            full_section = self.api_client.get_section(section_number)
-        except Exception:  # noqa: BLE001 - enrichment only, never fail the turn over it
-            return response
-        return {**response, "full_text_of_top_result": full_section}
+        return {**response, "full_text_of_top_results": full_texts}

@@ -100,5 +100,6 @@ def test_agent_ask_with_needs_full_text_chains_to_real_section_lookup(api_client
     agent = Agent(api_client=api_client)
     agent.ask("What's the exact permit requirement text for keeping animals?")
 
-    assert "full_text_of_top_result" in captured["prompt"]
+    assert "full_text_of_top_results" in captured["prompt"]
+    assert "161.09" in captured["prompt"]
     assert "161.09" in captured["prompt"]
