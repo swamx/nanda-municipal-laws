@@ -141,6 +141,10 @@ Either way, this is a keyword search, not a semantic one — term frequency (Pyt
 
 `summarize_law` is folded into the section-lookup response as `structural_summary`: a deterministic split on sentence-bounded lettered/numbered subsection markers (`re.split(r"(?<=[.;]\s)(?=\([a-z0-9]+\)\s)", text)`, `app/routers/sections.py`). The lookahead requires the marker to follow a sentence boundary specifically because mid-sentence parenthetical cross-references (e.g. real §161.19 text: "...as authorized by §161.01 **(a)** of this Article") look syntactically identical to a real subsection marker — verified against real text before finalizing the regex, not assumed.
 
+## `POST /sections/{id}/term_map`: a display aid, not a retrieval mode
+
+`app/term_map.py::build_term_map()` tokenizes the request's `query` the same way as elsewhere in this codebase (`\w+`, lowercased, a small hand-maintained stopword set dropped — deliberately duplicated rather than cross-imported from `app/ingestion/enrich.py`, matching this codebase's existing convention of small local duplication over private cross-module imports), then finds every **word-boundary** match of each distinct term in the section's full text (the same word-boundary discipline as `search_scoring.py`/`enrich.py`, for the same reason: naive substring matching would flag "fine" inside "defined"). Each match is returned with a context-bounded, `<mark>`-wrapped snippet — meant to be rendered directly in a search-results/demo UI to show *why* a section matched, not just that it did. Explicitly not another ranking mode: no scores, no reordering, just highlighting real occurrences already found by `/search`/`/penalties`/`/permits`/`/is_action_allowed`.
+
 ## `POST /is_action_allowed`: retrieval plus rules, not LLM reasoning
 
 The headline capability, positioning this as a reusable agent skill ("determine whether an action is legal") rather than a generic search API. `app/action_evaluator.py::evaluate_action()` composes existing building blocks rather than introducing a new retrieval path:

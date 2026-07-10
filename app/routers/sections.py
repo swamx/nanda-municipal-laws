@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pymongo.database import Database
 
 from app.db import LAWS_COLLECTION, get_db
-from app.models import RelatedLawsResponse, RelatedSection, SectionOut
+from app.models import RelatedLawsResponse, RelatedSection, SectionOut, TermMapRequest, TermMapResponse
 from app.section_lookup import get_section_chunks
+from app.term_map import build_term_map
 from app.text_structure import split_subsections
 
 router = APIRouter()
@@ -105,5 +106,41 @@ def get_related_laws(section_number: str, db: Database = Depends(get_db)) -> Rel
         reasoning=(
             f"extracted {len(cross_references)} cross-reference(s) from §{section_number}'s body text "
             f"via regex; {resolved_count} of {len(cross_references)} resolved against the ingested corpus"
+        ),
+    )
+
+
+@router.post(
+    "/sections/{section_number}/term_map",
+    response_model=TermMapResponse,
+    tags=["Search"],
+    summary="Highlight where search terms occur within a section",
+    description=(
+        "A **search term map**: for each distinct term in `query`, every place it occurs in this "
+        "section's full text, each as a context-bounded, `<mark>`-highlighted snippet - render "
+        "directly on a search-results page to show *why* a section matched, not just that it did.\n\n"
+        "**When to call this**: after `/search`/`/penalties`/`/permits` surfaces a `section_number`, "
+        "to build result-page highlighting for it (a search UI or a demo). This is a display aid, not "
+        "another ranking mode - deterministic, word-boundary matching, same query always produces the "
+        "same map in the same order. Returns `404` if the section number doesn't exist."
+    ),
+)
+def get_term_map(section_number: str, payload: TermMapRequest, db: Database = Depends(get_db)) -> TermMapResponse:
+    chunks = get_section_chunks(db, section_number)
+    if not chunks:
+        raise HTTPException(status_code=404, detail="section not found")
+
+    full_text = " ".join(c["text"] for c in chunks)
+    term_map, total = build_term_map(full_text, payload.query, payload.context_chars)
+
+    return TermMapResponse(
+        section_number=section_number,
+        query=payload.query,
+        term_map=term_map,
+        total_occurrences=total,
+        reasoning=(
+            f"tokenized query {payload.query!r} into {len(term_map)} distinct term(s) with at least one "
+            "match after dropping stopwords; scanned the full section text for word-boundary matches - "
+            "a display aid for highlighting, not another ranking mode"
         ),
     )

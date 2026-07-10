@@ -155,6 +155,7 @@ All endpoints except `/` and `/skill.md` are under `/api/v1` and rate-limited pe
 | `/api/v1/search` | POST | `{query, limit?, title_num?, chapter_num?, document_type?, agency?, topic?, search_mode?}` → ranked `results` + `reasoning` |
 | `/api/v1/sections/{section_number}` | GET | Exact lookup by section number — full metadata, cross-references, and a deterministic `structural_summary` |
 | `/api/v1/sections/{section_number}/related` | GET | Resolves that section's cross-references into their own citations |
+| `/api/v1/sections/{section_number}/term_map` | POST | `{query, context_chars?}` → search term map: every occurrence of each query term in the section, `<mark>`-highlighted with context — for search-results/demo UI rendering |
 | `/api/v1/penalties` | POST | `{query?, topic?}` → results filtered to sections flagged as mentioning a penalty |
 | `/api/v1/permits` | POST | `{query?, topic?}` → results filtered to sections flagged as mentioning a permit requirement |
 | `/api/v1/documents/{id}` | GET | Document metadata (title/chapter/subchapter or article, source URL) |

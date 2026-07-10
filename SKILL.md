@@ -135,6 +135,30 @@ curl -s https://nanda-municipal-laws.vercel.app/api/v1/sections/161.19/related
 
 A reference to a section outside the ingested corpus is still listed, with `"resolved": false` and null `url`/`section_title` — a gap is shown, never hidden.
 
+### `POST /api/v1/sections/{section_number}/term_map`
+
+A search term map: for each distinct term in `query`, every place it occurs in that section's full text, as a context-bounded, `<mark>`-highlighted snippet. Useful when composing a UI/demo that shows *why* a section matched, not just that it did — this is a display aid, not another ranking mode.
+
+```bash
+curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/sections/161.19/term_map \
+  -H "Content-Type: application/json" -d '{"query": "rooster poultry"}'
+```
+
+```json
+{
+  "section_number": "161.19",
+  "query": "rooster poultry",
+  "term_map": {
+    "rooster": [{"start": 88, "end": 95, "snippet": "…No person shall keep a live <mark>rooster</mark>, duck, goose or turkey…"}],
+    "poultry": [{"start": 35, "end": 42, "snippet": "§161.19 Keeping of livestock, live <mark>poultry</mark> and rabbits…"}]
+  },
+  "total_occurrences": 2,
+  "reasoning": "tokenized query 'rooster poultry' into 2 distinct term(s) with at least one match after dropping stopwords; scanned the full section text for word-boundary matches - a display aid for highlighting, not another ranking mode"
+}
+```
+
+Terms with zero matches are omitted from `term_map` entirely. Returns `404` if `section_number` doesn't exist.
+
 ### `POST /api/v1/penalties`
 
 Filters to sections whose text was flagged as mentioning a penalty/fine/violation (a keyword heuristic, not legal certainty — see Rules below). Optional `query` and `topic`.
@@ -226,7 +250,7 @@ Confidence isn't returned by the API — compute it yourself from what you got b
 1. If the question is a yes/no legality check on a described action ("can I...", "is it legal to...", "am I allowed to..."), call `POST /api/v1/is_action_allowed` with that action described in plain terms first — it's purpose-built for exactly this and does the search + rule evaluation for you.
 2. Otherwise, pull the key terms (not the full sentence) from the user's question and call `POST /api/v1/search`, optionally filtered by `document_type`/`topic`/`agency` if you can infer them.
 3. If a result's `section_number` looks like the authoritative answer, call `GET /api/v1/sections/{section_number}` for its full text and `structural_summary`.
-4. If you need related context, call `GET /api/v1/sections/{section_number}/related`.
+4. If you need related context, call `GET /api/v1/sections/{section_number}/related`. If you're building a UI/demo and want to visually highlight where the matched terms actually occur, call `POST /api/v1/sections/{section_number}/term_map`.
 5. If the question is specifically about penalties or permit requirements (not a yes/no legality check), call `POST /api/v1/penalties` or `POST /api/v1/permits` instead of a general search. If the user wants the exact amount or wording (not just which section applies), follow up with `GET /api/v1/sections/{section_number}` on the most relevant result(s) — see Rule 2.
 6. If `/search` or `/is_action_allowed` returns nothing relevant, retry with different literal keywords before concluding there's no coverage.
 7. Compose your final answer in the `{answer, sources, reasoning}` shape above, following every rule in the Rules section — especially never inventing a number or fact absent from the returned `text`, and never repeating `is_action_allowed`'s `allowed` field as a legal conclusion without reading its `reasoning` first.

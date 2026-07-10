@@ -206,6 +206,44 @@ A reference to a section outside the ingested corpus is included with `"resolved
 
 ---
 
+## `POST /api/v1/sections/{section_number}/term_map`
+
+A **search term map**: for each distinct term in `query`, every place it occurs within that section's full text, as a context-bounded, `<mark>`-highlighted snippet — for rendering search-hit highlights on a demo/results page (why a section matched, not just that it did). A display aid, not another ranking mode: deterministic word-boundary matching, same query always produces the same map in the same order.
+
+Request body:
+
+| field | type | required | notes |
+|---|---|---|---|
+| `query` | string | yes | search terms to locate — same tokenization as `/search` (stopwords dropped, word-boundary matching) |
+| `context_chars` | int | no | default 80, range 10–300 — how much surrounding context on each side of a highlighted term |
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/sections/161.19/term_map \
+  -H "Content-Type: application/json" -d '{"query": "rooster poultry"}'
+```
+
+```json
+{
+  "section_number": "161.19",
+  "query": "rooster poultry",
+  "term_map": {
+    "rooster": [
+      {"start": 88, "end": 95, "snippet": "…live poultry and rabbits. (a) No person shall keep a live <mark>rooster</mark>, duck, goose or turkey in the City…"}
+    ],
+    "poultry": [
+      {"start": 35, "end": 42, "snippet": "§161.19 Keeping of livestock, live <mark>poultry</mark> and rabbits. (a) No person…"},
+      {"start": 501, "end": 508, "snippet": "…sell livestock, live rabbits or <mark>poultry</mark> shall keep the premises…"}
+    ]
+  },
+  "total_occurrences": 3,
+  "reasoning": "tokenized query 'rooster poultry' into 2 distinct term(s) with at least one match after dropping stopwords; scanned the full section text for word-boundary matches - a display aid for highlighting, not another ranking mode"
+}
+```
+
+Terms with zero matches are omitted from `term_map` entirely (not returned as an empty list). Returns `404` if `section_number` doesn't exist, `422` for an empty `query`.
+
+---
+
 ## `POST /api/v1/penalties`
 
 Filters to chunks flagged `mentions_penalty: true` (keyword heuristic — see [DATA_SOURCE.md](./DATA_SOURCE.md#known-limitation-mentions_penaltymentions_permit-are-keyword-heuristics)). Optional `query` (adds ranking on top of the filter, `text_index` or `in_app` per `search_mode`/`SEARCH_MODE`) and `topic`.

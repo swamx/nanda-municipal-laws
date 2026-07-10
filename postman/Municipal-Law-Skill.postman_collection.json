@@ -621,6 +621,116 @@
               }
             }
           ]
+        },
+        {
+          "name": "POST /sections/161.19/term_map - Success Test: highlights real rooster/poultry occurrences",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"rooster poultry\",\n  \"_test_note\": \"Validates the search term map: each distinct query term (stopwords dropped) mapped to every word-boundary occurrence in 161.19's full text, each highlighted with <mark> tags and bounded context - for rendering search-hit highlights on a demo/results page.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/sections/161.19/term_map"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('maps both query terms, in query order', function () {",
+                  "  pm.expect(Object.keys(body.term_map)).to.eql(['rooster', 'poultry']);",
+                  "});",
+                  "pm.test('each occurrence is highlighted with <mark> tags', function () {",
+                  "  pm.expect(body.term_map.rooster[0].snippet).to.include('<mark>rooster</mark>');",
+                  "});",
+                  "pm.test('total_occurrences matches the sum of both terms', function () {",
+                  "  const sum = body.term_map.rooster.length + body.term_map.poultry.length;",
+                  "  pm.expect(body.total_occurrences).to.eql(sum);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /sections/161.19/term_map - Success Test: omits terms with zero matches",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"rooster zebra\",\n  \"_test_note\": \"'zebra' does not appear anywhere in 161.19's real text - validates it is silently omitted from term_map rather than returned as an empty/fabricated list.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/sections/161.19/term_map"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('zebra is omitted (no fabricated zero-match entry)', function () {",
+                  "  pm.expect(body.term_map).to.not.have.property('zebra');",
+                  "});",
+                  "pm.test('rooster is still present', function () {",
+                  "  pm.expect(body.term_map).to.have.property('rooster');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /sections/999.99/term_map - Fail Test: 404 for unknown section",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"rooster\",\n  \"_test_note\": \"Same 404 contract as /sections/{id} and /sections/{id}/related for an unknown section number.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/sections/999.99/term_map"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /sections/161.19/term_map - Fail Test: 422 validation error on empty query",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"\",\n  \"_test_note\": \"TermMapRequest.query has min_length=1 per app/models.py; an empty string must fail validation with 422.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/sections/161.19/term_map"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422 (empty query)', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

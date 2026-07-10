@@ -288,6 +288,61 @@ class RelatedLawsResponse(BaseModel):
     reasoning: str
 
 
+class TermMapRequest(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"query": "rooster poultry"}]})
+
+    query: str = Field(min_length=1, description="Search terms to locate within the section - same tokenization as /search (word-boundary matching, common stopwords dropped).")
+    context_chars: int = Field(
+        default=80,
+        ge=10,
+        le=300,
+        description="How many characters of surrounding context to include on each side of a highlighted term.",
+    )
+
+
+class TermOccurrence(BaseModel):
+    start: int = Field(description="Character offset of the match start within the section's full text.")
+    end: int = Field(description="Character offset of the match end within the section's full text.")
+    snippet: str = Field(description="Context-bounded excerpt with the matched term wrapped in an HTML <mark> tag - render directly on a search-results page.")
+
+
+class TermMapResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "section_number": "161.19",
+                    "query": "rooster poultry",
+                    "term_map": {
+                        "rooster": [
+                            {
+                                "start": 45,
+                                "end": 52,
+                                "snippet": "…No person shall keep a live <mark>rooster</mark>, duck, goose or turkey in the City…",
+                            }
+                        ],
+                        "poultry": [
+                            {
+                                "start": 10,
+                                "end": 17,
+                                "snippet": "§161.19 Keeping of livestock, live <mark>poultry</mark> and rabbits. (a) No person…",
+                            }
+                        ],
+                    },
+                    "total_occurrences": 2,
+                    "reasoning": "tokenized query 'rooster poultry' into 2 distinct term(s) after dropping stopwords; scanned the full section text for word-boundary matches - a display aid for highlighting, not another ranking mode",
+                }
+            ]
+        }
+    )
+
+    section_number: str
+    query: str
+    term_map: dict[str, list[TermOccurrence]] = Field(description="Each distinct query term mapped to every place it occurs in the section, in document order.")
+    total_occurrences: int
+    reasoning: str
+
+
 class TopicFilterRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={

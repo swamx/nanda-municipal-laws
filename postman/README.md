@@ -15,7 +15,7 @@ Infra/integration test suite for the Municipal Law Skill API, targeting the live
   1. **Service Info** — `/`, `/skill.md`, `/api/v1/health`, `/api/v1/version`
   2. **is_action_allowed** — the two flagship pitch examples (chickens allowed with rooster caveat, at `confidence: medium` against the full corpus; rooster keeping prohibited, at `confidence: medium` too — see the note below on why this isn't `high`), a genuinely-no-match case (using invented, non-English tokens - see note below), two documented keyword-collision limitation cases ("roof", "flame/flaming"), and two request-validation Fail Tests
   3. **Search** — both `search_mode` values, filtered and unfiltered, plus validation Fail Tests
-  4. **Sections** — exact lookup, related-laws resolution, 404 handling for both
+  4. **Sections** — exact lookup, related-laws resolution, 404 handling for both, and the search term map (highlighted occurrences, zero-match term omission, 404/422 handling)
   5. **Topic Filters** — `/penalties`, `/permits`, plus validation Fail Tests
   6. **Documents** — chained from a Search response's `document_id` via a collection variable, plus 404 Fail Tests for a well-formed-but-nonexistent id and a malformed id
   7. **Ingest** — **manual/optional**, not meant for automated runs (see below)
