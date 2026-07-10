@@ -30,6 +30,31 @@ flowchart TD
 
 Ingestion is on-demand and bounded (`POST /ingest`, max `INGEST_MAX_URLS` pages per call), not a background job — this runs as a Vercel serverless function with a hard execution-time ceiling, so there's no long-lived worker to schedule crawls.
 
+## Agent workflow
+
+The data flow above is how the corpus gets *into* the API; this is how a calling agent uses it once it's there. Every step is a plain HTTP call the API answers deterministically — nothing in this sequence involves an LLM on the server side.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Agent as Calling agent<br/>(reads SKILL.md)
+    participant API as Municipal Law Skill<br/>(this service, no LLM)
+
+    User->>Agent: "Can I keep backyard chickens?"
+    Agent->>API: POST /is_action_allowed<br/>{"action": "Keep backyard chickens"}
+    API-->>Agent: {allowed, conditions, citations, reasoning, confidence}
+    opt Agent needs more than the returned snippet/text
+        Agent->>API: GET /sections/{section_number}
+        API-->>Agent: full untruncated text + structural_summary
+        Agent->>API: GET /sections/{section_number}/related
+        API-->>Agent: cross-referenced sections
+    end
+    Agent->>Agent: compose {answer, sources, reasoning}<br/>per SKILL.md's "Composing your final answer"
+    Agent-->>User: final answer, citing section_number + url
+```
+
+For a general (non yes/no) question, the agent calls `POST /search` instead of `/is_action_allowed`; for a penalty- or permit-specific question, `POST /penalties`/`POST /permits`. See `SKILL.md`'s "How to use this service" for the exact routing rules.
+
 ## Multi-format ingestion: `SourceLoader`
 
 Two independent sources, two formats (HTML admin code, PDF health code), one common output shape. `app/ingestion/loader.py` dispatches by URL suffix:

@@ -6,7 +6,7 @@ from app.db import get_db
 from app.ingestion.pipeline import ingest_url
 from app.models import IngestRequest, IngestResponse, IngestResultItem
 
-router = APIRouter(tags=["ingest"])
+router = APIRouter(tags=["Administration"])
 
 
 def _require_ingest_api_key(x_ingest_api_key: str | None = Header(default=None)) -> None:
@@ -14,7 +14,19 @@ def _require_ingest_api_key(x_ingest_api_key: str | None = Header(default=None))
         raise HTTPException(status_code=401, detail="missing or invalid X-Ingest-Api-Key header")
 
 
-@router.post("/ingest", response_model=IngestResponse, dependencies=[Depends(_require_ingest_api_key)])
+@router.post(
+    "/ingest",
+    response_model=IngestResponse,
+    dependencies=[Depends(_require_ingest_api_key)],
+    summary="Fetch, parse, and persist source pages/PDFs",
+    description=(
+        "Operational endpoint for maintaining the corpus - **not part of the agent-facing retrieval "
+        "surface** and not something a calling agent should ever need to invoke. Dispatches "
+        "automatically by URL suffix (Admin Code HTML pages vs. Health Code PDFs). Gated by "
+        "`X-Ingest-Api-Key` if `INGEST_API_KEY` is configured, and rate-limited to its own stricter "
+        "bucket since it triggers outbound fetches and database writes."
+    ),
+)
 def ingest(payload: IngestRequest, db: Database = Depends(get_db)) -> IngestResponse:
     if len(payload.urls) > settings.ingest_max_urls:
         raise HTTPException(

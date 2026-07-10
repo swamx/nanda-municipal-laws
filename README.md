@@ -4,6 +4,24 @@ Any autonomous agent can determine whether an action is legal in New York City b
 
 The skill returns structured facts with citations and mechanical `reasoning` — never a fabricated answer. It never calls an LLM internally; see [SKILL.md](./SKILL.md) for exactly how a calling agent should compose its final response from what this API returns.
 
+> **This service never generates legal answers.** It only returns authoritative legal evidence and citations. The calling agent performs the reasoning. Same query → same citations → same ordering, every time — no randomness, nothing to re-run for a different answer.
+
+**The complete corpus, not a sample:**
+
+| | Titles/Articles | Sections | Source |
+|---|---|---|---|
+| NYC Administrative Code | 32 | 4,781 | [nycadmincode.readthedocs.io](https://nycadmincode.readthedocs.io/) (CC0) |
+| NYC Health Code | 36 | 501 | first-party PDFs, nyc.gov |
+
+668 source documents, 10,702 searchable chunks total — see [docs/COVERAGE.md](./docs/COVERAGE.md) for the exact live manifest.
+
+**Try it in one call:**
+
+```bash
+curl -X POST https://nanda-municipal-laws.vercel.app/api/v1/is_action_allowed \
+  -H "Content-Type: application/json" -d '{"action": "Keep backyard chickens"}'
+```
+
 Design:
 - **`is_action_allowed(action, context)`** — the headline tool: describe an action in plain language, get back `{allowed, conditions, citations, reasoning, confidence}`. Implemented as retrieval plus rules (keyword search + prohibition/permission classification), not LLM reasoning — `allowed` is only `true`/`false` when the corpus contains an explicit statement; otherwise it's `null` ("unclear"), never a guess from silence.
 - **Deterministic search, no LLM in the loop**: `SEARCH_MODE=text_index` (default) uses native MongoDB `$text`/`textScore`; `in_app` uses a Python TF-style scorer instead — selectable per-request, no embeddings or vector DB either way. No fabricated answers, ever. The API returns ranked results with citations and a `reasoning` string; the caller decides how to use them.

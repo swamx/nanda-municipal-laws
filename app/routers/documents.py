@@ -6,7 +6,7 @@ from pymongo.database import Database
 from app.db import LAWS_COLLECTION, get_db
 from app.models import ChunkOut, DocumentOut
 
-router = APIRouter(tags=["documents"])
+router = APIRouter(tags=["Lookup"])
 
 
 def _object_id(doc_id: str) -> ObjectId:
@@ -16,7 +16,19 @@ def _object_id(doc_id: str) -> ObjectId:
         raise HTTPException(status_code=404, detail="document not found")
 
 
-@router.get("/documents/{doc_id}", response_model=DocumentOut)
+@router.get(
+    "/documents/{doc_id}",
+    response_model=DocumentOut,
+    summary="Get metadata for one ingested source document",
+    description=(
+        "Metadata for one ingested source document (an Admin Code chapter/subchapter page, or a "
+        "Health Code article), by the `document_id` a `/search` result returned.\n\n"
+        "**When to call this**: rarely needed directly by an agent - `document_id` exists mainly to "
+        "chain into `GET /documents/{id}/chunks` for every section in that document. For a single "
+        "section's full text, prefer `GET /sections/{section_number}` instead. Returns `404` if the "
+        "id doesn't exist."
+    ),
+)
 def get_document(doc_id: str, db: Database = Depends(get_db)) -> DocumentOut:
     document = db[LAWS_COLLECTION].find_one({"_id": _object_id(doc_id), "type": "document"})
     if document is None:
@@ -41,7 +53,12 @@ def get_document(doc_id: str, db: Database = Depends(get_db)) -> DocumentOut:
     )
 
 
-@router.get("/documents/{doc_id}/chunks", response_model=list[ChunkOut])
+@router.get(
+    "/documents/{doc_id}/chunks",
+    response_model=list[ChunkOut],
+    summary="Get every section belonging to a document",
+    description="All sections (chunks) belonging to a document, in order, each with full metadata. Returns `404` if the parent document doesn't exist.",
+)
 def get_document_chunks(doc_id: str, db: Database = Depends(get_db)) -> list[ChunkOut]:
     document_id = _object_id(doc_id)
     if db[LAWS_COLLECTION].find_one({"_id": document_id, "type": "document"}) is None:

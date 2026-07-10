@@ -6,10 +6,24 @@ from app.models import RelatedLawsResponse, RelatedSection, SectionOut
 from app.section_lookup import get_section_chunks
 from app.text_structure import split_subsections
 
-router = APIRouter(tags=["sections"])
+router = APIRouter()
 
 
-@router.get("/sections/{section_number}", response_model=SectionOut)
+@router.get(
+    "/sections/{section_number}",
+    response_model=SectionOut,
+    tags=["Lookup"],
+    summary="Exact section lookup by number",
+    description=(
+        "Look up one statute section by its exact number (e.g. `161.19` or `24-222`) - not a Mongo "
+        "document id. Returns the full, untruncated `text`, complete metadata, and a deterministic "
+        "`structural_summary` (one bullet per lettered/numbered subsection, produced by splitting "
+        "the real text on sentence boundaries - never an AI-generated summary).\n\n"
+        "**When to call this**: after `/search`/`/penalties`/`/permits` surface a section_number you "
+        "need the full text for, or when the user already names a specific section. Returns `404` if "
+        "the section number doesn't exist in the corpus."
+    ),
+)
 def get_section(section_number: str, db: Database = Depends(get_db)) -> SectionOut:
     chunks = get_section_chunks(db, section_number)
     if not chunks:
@@ -45,7 +59,21 @@ def get_section(section_number: str, db: Database = Depends(get_db)) -> SectionO
     )
 
 
-@router.get("/sections/{section_number}/related", response_model=RelatedLawsResponse)
+@router.get(
+    "/sections/{section_number}/related",
+    response_model=RelatedLawsResponse,
+    tags=["Cross References"],
+    summary="Resolve a section's cross-references into their own citations",
+    description=(
+        "Resolves the section's `cross_references` (other section_numbers it mentions by §-prefixed "
+        "citation, extracted at ingestion time) into their own citations - a one-hop citation graph, "
+        "no graph database required.\n\n"
+        "**When to call this**: after `/sections/{section_number}` if the user needs related context "
+        "the main section only references. A reference to a section outside the ingested corpus is "
+        "still listed, with `resolved: false` - a gap is shown, never hidden. Returns `404` if the "
+        "section number itself doesn't exist."
+    ),
+)
 def get_related_laws(section_number: str, db: Database = Depends(get_db)) -> RelatedLawsResponse:
     chunks = get_section_chunks(db, section_number)
     if not chunks:

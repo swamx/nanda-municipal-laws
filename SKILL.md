@@ -4,6 +4,23 @@ Any autonomous agent can determine whether an action is legal in New York City b
 
 Base URL: `https://nanda-municipal-laws.vercel.app`
 
+**The complete corpus, not a sample**: all 32 titles / 4,781 sections of the NYC Administrative Code, plus all 36 articles / 501 sections of the NYC Health Code — 668 source documents, 10,702 searchable chunks. See [docs/COVERAGE.md](./docs/COVERAGE.md) for the exact live manifest.
+
+## Agent workflow
+
+```
+User asks a question
+    -> POST /api/v1/is_action_allowed   (yes/no legality check on a described action)
+       or  POST /api/v1/search          (general lookup)
+       or  POST /api/v1/penalties |     (penalty/permit-specific questions)
+           POST /api/v1/permits
+    -> GET /api/v1/sections/{id}        (full text, if you need more than the snippet)
+    -> GET /api/v1/sections/{id}/related  (cross-referenced sections, if needed)
+    -> Agent composes the final answer from the returned citations + reasoning
+```
+
+See "How to use this service" below for the exact decision rules, and "Composing your final answer" for the last step.
+
 ## Endpoints
 
 ### `POST /api/v1/is_action_allowed`
