@@ -29,6 +29,10 @@ Design:
 - **Storage**: MongoDB (Atlas free tier — the full corpus, 668 documents / ~10,700 chunks, uses ~55 MB of the 512 MB M0 limit) — a single `dl-laws` collection.
 - **Hosting**: Vercel free/Hobby tier (zero-config FastAPI/ASGI support), or any ASGI host via `uvicorn`.
 - **Hardened for a public demo URL**: per-client rate limiting (10 req/min by default on read endpoints; a much stricter 1 req/min on `/ingest` since it triggers outbound fetches and Atlas writes), an optional shared-secret gate on `/ingest`, fast-fail Mongo timeouts, pinned dependencies, and a global exception handler that never leaks stack traces.
+- **Signed, verifiable provenance**: every `/is_action_allowed` and `/search` response carries an Ed25519 `provenance` signature over its own content, verifiable offline against `GET /api/v1/pubkey` — a downstream agent (or another composing skill) can prove *this service* produced a citation without re-querying it. See [docs/PROVENANCE.md](./docs/PROVENANCE.md).
+- **Corpus freshness signal**: `GET /api/v1/version` reports `corpus_last_ingested_at`/`corpus_age_days` — law text goes stale, and this is the mechanical check for whether a citation is likely current.
+- **MCP transport**: the same six capabilities are also available as MCP tools via [`mcp_server/`](./mcp_server/README.md), for MCP-native agent runtimes (Claude Desktop, Claude Code) alongside the raw HTTP API.
+- **An opt-in IDF-weighted search mode** (`search_mode: "idf"`) reduces a documented false-positive class — a query sharing one generic word with an unrelated section (e.g. "party") no longer weighs the same as a topically distinctive term. Off by default so existing callers' ranking is unaffected; see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 📖 **Full docs:** [docs/](./docs/) — [architecture](./docs/ARCHITECTURE.md), [API reference](./docs/API.md), [deployment](./docs/DEPLOYMENT.md), [data source](./docs/DATA_SOURCE.md). Agent-facing quick reference: [SKILL.md](./SKILL.md).
 
@@ -47,13 +51,14 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full ingestion-to-API
 ## Project layout
 
 ```text
-app/            FastAPI app: config, db, rate limiting, retrieval, models, routers, ingestion pipeline
+app/            FastAPI app: config, db, rate limiting, retrieval, models, routers, ingestion pipeline, Ed25519 signing
 api/index.py    Vercel entrypoint (re-exports app.main:app)
 scripts/        crawl_and_seed_admin_code.py, seed_all_health_code.py, generate_coverage_report.py
-tests/          parser + ingestion + API + rate-limit + section/related/topic-filter tests (fake in-memory Mongo)
-docs/           architecture, API reference, deployment, data source, COVERAGE.md (generated)
+tests/          parser + ingestion + API + rate-limit + section/related/topic-filter + provenance + IDF-scoring tests (fake in-memory Mongo)
+docs/           architecture, API reference, deployment, data source, provenance, composability, COVERAGE.md (generated)
 postman/        Postman collection + environments for testing the deployed API
 local_agent/    local-only chat-loop agent simulating a real caller of this skill (never deployed - see below)
+mcp_server/     local-only MCP transport wrapping the same public API (never deployed - see mcp_server/README.md)
 SKILL.md        agent-facing API reference (endpoints, curl, composing a final answer, usage steps)
 ```
 
@@ -180,5 +185,8 @@ This file covers quick-start and a high-level summary. Everything else lives in 
 | [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | MongoDB Atlas + Vercel free-tier setup, environment variable table, production-readiness notes |
 | [docs/DATA_SOURCE.md](./docs/DATA_SOURCE.md) | Where the law text comes from, licensing, PDF/HTML parsing quirks discovered during ingestion, and known limitations (keyword vs. semantic search, coincidental keyword matches) |
 | [docs/COVERAGE.md](./docs/COVERAGE.md) | Exact ingested coverage (every title/chapter/subchapter/article), generated live from MongoDB |
+| [docs/PROVENANCE.md](./docs/PROVENANCE.md) | Signed-response verification: what's signed, the exact canonicalization recipe, a runnable Python verifier, and key-stability notes |
+| [docs/COMPOSABILITY.md](./docs/COMPOSABILITY.md) | Worked example of composing this skill downstream of another NANDA Town skill (e.g. enriching a civic complaint with the governing statute) |
 | [postman/README.md](./postman/README.md) | Postman collection for testing the deployed API — import instructions, Newman CLI usage, why the ingest/rate-limit folders are manual-only |
 | [local_agent/README.md](./local_agent/README.md) | Local-only chat-loop agent that simulates a real caller of this skill (routes questions via the `claude` CLI, calls the real API, composes the final answer) — architecture, how to run it, and its own test suite |
+| [mcp_server/README.md](./mcp_server/README.md) | Local-only MCP transport wrapping the same public API for MCP-native agent runtimes — install, run, connect, and its own test suite |

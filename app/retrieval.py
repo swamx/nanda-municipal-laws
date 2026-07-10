@@ -6,12 +6,12 @@ from pymongo.errors import OperationFailure
 from app.config import settings
 from app.db import LAWS_COLLECTION
 from app.models import SearchResultItem
-from app.search_scoring import score_chunk
+from app.search_scoring import score_chunk, score_chunks_idf
 
 logger = logging.getLogger("municipal_bylaws_api.retrieval")
 
 SNIPPET_LENGTH = 200
-VALID_SEARCH_MODES = ("text_index", "in_app")
+VALID_SEARCH_MODES = ("text_index", "in_app", "idf")
 
 
 def search_chunks(
@@ -39,6 +39,13 @@ def search_chunks(
     - "in_app": Python TF-style scoring (app/search_scoring.py) - no index
       dependency, but fetches every filter-matching chunk into memory, so it
       degrades as the corpus grows.
+    - "idf": Python IDF-weighted scoring (app/search_scoring.py) - same
+      in-memory tradeoff as "in_app", but down-weights query terms shared
+      across most of the candidate set (reduces the documented false-positive
+      class where one generic shared word, e.g. "party", ranks an off-topic
+      section highly). Still deterministic, still no LLM/embedding model - opt
+      in per-request via `search_mode`, not the default, so existing callers'
+      ranking/ordering is unaffected.
 
     If "text_index" is requested but the text index is unavailable (e.g. the
     Atlas role in use can't create indexes), falls back to "in_app" rather
@@ -73,6 +80,10 @@ def search_chunks(
             return _search_via_text_index(db, mongo_filter, query, limit)
         except OperationFailure as exc:
             logger.warning("text index search failed, falling back to in-app scoring: %s", exc)
+            return _search_via_in_app_scoring(db, mongo_filter, query, limit)
+
+    if mode == "idf":
+        return _search_via_idf_scoring(db, mongo_filter, query, limit)
 
     return _search_via_in_app_scoring(db, mongo_filter, query, limit)
 
@@ -107,6 +118,24 @@ def _search_via_in_app_scoring(
     reasoning = (
         f"matched query {query!r} against {len(candidates)} candidate chunk(s) after applying "
         "filters; ranked by term frequency (in-app scoring), title weighted higher than body"
+    )
+    results = [_to_result_item(doc, score) for score, doc in top]
+    return results, reasoning
+
+
+def _search_via_idf_scoring(
+    db: Database, mongo_filter: dict, query: str, limit: int
+) -> tuple[list[SearchResultItem], str]:
+    candidates = list(db[LAWS_COLLECTION].find(mongo_filter))
+    scored = score_chunks_idf(candidates, query)
+    scored = [(score, doc) for score, doc in scored if score > 0]
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    top = scored[:limit]
+    reasoning = (
+        f"matched query {query!r} against {len(candidates)} candidate chunk(s) after applying "
+        "filters; ranked by IDF-weighted term frequency - terms shared across most candidates "
+        "(generic legal words) are down-weighted, topically distinctive terms are up-weighted; "
+        "deterministic, not a neural embedding or LLM"
     )
     results = [_to_result_item(doc, score) for score, doc in top]
     return results, reasoning

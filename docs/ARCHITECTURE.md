@@ -111,10 +111,11 @@ The MongoDB Atlas custom role provisioned for this project grants read/write on 
 
 ## Search: two interchangeable modes, `$text` by default
 
-Earlier in this project, the Atlas role couldn't grant `createIndex`, so search ran entirely as in-app Python scoring. That's since been confirmed fixed (the role now supports it — see `app/db.py::ensure_indexes()`, which now also creates a weighted text index on `section_title`/`text`), and the corpus grew from ~150 chunks to several thousand across the full NYC Administrative Code and NYC Health Code, at which point fetching every filter-matching chunk into Python per search stops being "fine at this scale." So `app/retrieval.py::search_chunks()` now supports **two interchangeable strategies**, chosen by `settings.search_mode` (env var `SEARCH_MODE`, default `"text_index"`) or overridden per-request via `SearchRequest.search_mode`/`TopicFilterRequest.search_mode`:
+Earlier in this project, the Atlas role couldn't grant `createIndex`, so search ran entirely as in-app Python scoring. That's since been confirmed fixed (the role now supports it — see `app/db.py::ensure_indexes()`, which now also creates a weighted text index on `section_title`/`text`), and the corpus grew from ~150 chunks to several thousand across the full NYC Administrative Code and NYC Health Code, at which point fetching every filter-matching chunk into Python per search stops being "fine at this scale." So `app/retrieval.py::search_chunks()` now supports **three interchangeable strategies**, chosen by `settings.search_mode` (env var `SEARCH_MODE`, default `"text_index"`) or overridden per-request via `SearchRequest.search_mode`/`TopicFilterRequest.search_mode`:
 
 - **`"text_index"` (default)**: native MongoDB `$text`/`textScore` — the database does the filtering and ranking, so it scales to a large corpus without pulling every candidate into the API process.
 - **`"in_app"`**: the original `app/search_scoring.py` TF-style scorer — fetches every filter-matching chunk and scores in Python. No index dependency, but degrades as the corpus grows; kept as a documented, selectable fallback rather than deleted, since it's what let this project work before `createIndex` was confirmed available, and it's what the `text_index` path automatically falls back to (catching `OperationFailure`) if the text index is ever unavailable again.
+- **`"idf"`**: `app/search_scoring.py::score_chunks_idf()` — same in-memory fetch as `"in_app"`, but weights each query term by its inverse document frequency *within that request's candidate set*, computed fresh per call (not a corpus-wide static index, so it stays deterministic with no offline training step). A term present in nearly every candidate (a generic shared word) contributes almost nothing; a term present in only one or two candidates dominates the ranking. Targets the false-positive class documented below and in `SKILL.md` Rule 7 (e.g. "party" as in "a party to an action") without adding a neural embedding model or an LLM. Opt-in only — not the default `SEARCH_MODE`, so existing callers' ranking/ordering is unaffected; see `tests/test_search_scoring_idf.py` for a worked before/after comparison against the flat scorer.
 
 ```mermaid
 flowchart TD
@@ -172,6 +173,12 @@ flowchart TD
 
 **A known, deliberately undocumented-not-hidden limitation**: ranking by shared keywords means a query overlapping an unrelated section on one common word can produce a misleadingly confident-looking result. Found empirically while testing: a nonsense action ("launch a satellite from my roof") matched an unrelated building-construction section on the word "roof" (meaning roofing material, not rooftop location) and returned `allowed: false` citing real but off-topic text; similarly "party" (a legal term for a party to an action) coincidentally matched an unrelated section for a query about a celebration. The citation and matched text are always real — this isn't fabrication — but the *selected section* can be wrong for homonym/ambiguous terms, which is exactly the kind of disambiguation that requires semantic understanding this deliberately-non-LLM design doesn't attempt. Pinned by `tests/test_is_action_allowed.py::test_known_limitation_coincidental_common_word_can_still_match` and documented in `SKILL.md`'s Rules section (always read `reasoning` before trusting `allowed`) rather than silently patched with a threshold that would risk breaking the correct cases.
 
+## Signed provenance: Ed25519 over the response body, not a new trust primitive
+
+`/is_action_allowed` and `/search` each sign their own response with Ed25519 (`app/signing.py`) before returning it: the router builds the response normally, dumps it to canonical JSON (sorted keys, compact separators) excluding the not-yet-populated `provenance` field, signs that byte string, then attaches the signature via `response.model_copy(update={"provenance": provenance})`. `GET /api/v1/pubkey` exposes the public key. This is deliberately a thin, standard primitive (sign-what-you-return) rather than a bespoke attestation scheme, so any caller can verify it with a stock Ed25519 library — see `docs/PROVENANCE.md` for the exact recipe and a runnable verifier, and `tests/test_provenance.py` for a tamper-detection test (mutating one response field after signing breaks verification).
+
+The private key is loaded from `SIGNING_PRIVATE_KEY_SEED_HEX` if set, otherwise generated fresh per process (logged as a warning) - acceptable for a hackathon demo, but means the public key can rotate across Vercel cold starts unless that env var is set. This is an integrity/provenance guarantee ("this service produced this exact response"), not a correctness one - it says nothing about whether the underlying citation reflects current law, which is what `corpus_age_days` (`GET /api/v1/version`) is for.
+
 ## Rate limiting: MongoDB-backed, not in-memory
 
 Vercel serverless functions don't share process memory across invocations or cold starts, so a naive in-process rate limiter (a `dict` of counters) would not enforce a real per-client limit once traffic spans more than one warm instance. `app/rate_limit.py` implements two FastAPI dependencies backed by the same mechanism: `rate_limiter` (applied to `search`, `is_action_allowed`, `sections`, `penalties`, `permits`, `documents`, and `health` routers, default `RATE_LIMIT_PER_MINUTE` = 10) and `ingest_rate_limiter` (applied only to the `ingest` router, default `INGEST_RATE_LIMIT_PER_MINUTE` = 1 — much stricter, since that endpoint triggers outbound fetches and Atlas writes rather than just reads). Both call a shared `_check_rate_limit(request, db, scope, limit)` helper that increments a per-minute counter document in `dl-laws` (`type: "ratelimit"`, keyed by `scope` + `client_id` + `window_start`) via an atomic `find_one_and_update` with `$inc`, and rejects with `429` once the count for that scope exceeds its limit in the current 60-second window. The `scope` field keeps the two limiters' counters independent, so a client hitting `/ingest` once doesn't eat into their `/search` budget or vice versa. Client identity is best-effort: the first IP in `X-Forwarded-For` (Vercel's proxy header), falling back to the raw socket address.
@@ -223,7 +230,8 @@ app/
   text_structure.py       shared subsection-splitting (used by /sections/{id} and the action evaluator)
   section_lookup.py       shared get_section_chunks (used by /sections/{id} and the action evaluator)
   rate_limit.py         Mongo-backed per-client, per-scope rate limiting dependencies
-  routers/               search, is_action_allowed, sections (+/related), penalties, permits, documents, ingest, health/version
+  signing.py            Ed25519 key load/generate, canonicalize, sign_response (see "Signed provenance" above)
+  routers/               search, is_action_allowed, sections (+/related), penalties, permits, documents, ingest, health/version/pubkey
   ingestion/
     fetcher.py, parser.py, chunker.py     HTML admin-code path (v1)
     pdf_fetcher.py, health_code_parser.py PDF health-code path (v2)
@@ -235,8 +243,9 @@ scripts/
   crawl_and_seed_admin_code.py   crawl + ingest the entire NYC Administrative Code (--start-url/--limit to scope)
   seed_all_health_code.py        discover + ingest every NYC Health Code article (--article/--limit to scope)
   generate_coverage_report.py    regenerate docs/COVERAGE.md from live MongoDB contents
-tests/                   parser + ingestion + API + rate-limit + section/related/topic-filter tests, run against a fake Mongo
-docs/                    this folder, including COVERAGE.md (generated)
+tests/                   parser + ingestion + API + rate-limit + section/related/topic-filter + provenance + IDF-scoring tests, run against a fake Mongo
+mcp_server/              local-only MCP transport wrapping the same public API (see mcp_server/README.md)
+docs/                    this folder, including PROVENANCE.md, COMPOSABILITY.md, and COVERAGE.md (generated)
 ```
 
 ## Testing strategy

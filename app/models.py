@@ -18,6 +18,32 @@ class CorpusStats(BaseModel):
     total_chunks: int = 10702
 
 
+class Provenance(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "signature": "3a5f...c9",
+                    "public_key": "b1e0...7d",
+                    "signed_at": "2026-07-10T15:00:00Z",
+                    "algorithm": "ed25519",
+                }
+            ]
+        }
+    )
+
+    signature: str = Field(
+        description="Ed25519 signature (hex) over the canonical JSON of every other field in this "
+        "response (sorted keys, compact separators, this `provenance` object itself excluded). "
+        "Verify against `public_key` - see GET /api/v1/pubkey and docs/PROVENANCE.md for the exact "
+        "recipe. Lets a downstream agent prove *this service* produced these citations, offline, "
+        "without re-querying it."
+    )
+    public_key: str = Field(description="Ed25519 public key (hex, raw 32 bytes) that produced this signature - matches GET /api/v1/pubkey.")
+    signed_at: datetime
+    algorithm: str = "ed25519"
+
+
 class RootInfo(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -80,7 +106,7 @@ class SearchRequest(BaseModel):
     # for this call only. Invalid values are ignored (fall back to default).
     search_mode: str | None = Field(
         default=None,
-        description="Override the default ranking engine for this call only: 'text_index' (native MongoDB $text, default) or 'in_app' (Python TF-style scoring, no index dependency).",
+        description="Override the default ranking engine for this call only: 'text_index' (native MongoDB $text, default), 'in_app' (Python TF-style scoring, no index dependency), or 'idf' (Python IDF-weighted scoring - down-weights query terms shared across most candidates to reduce false positives from a single generic shared word; still deterministic, no embedding model or LLM).",
     )
 
 
@@ -126,6 +152,10 @@ class SearchResponse(BaseModel):
     results: list[SearchResultItem]
     count: int
     reasoning: str = Field(description="Mechanical explanation of how this result set was derived - never a legal conclusion. This service does not call an LLM; composing a natural-language answer from these citations is the calling agent's job (see SKILL.md).")
+    provenance: Provenance | None = Field(
+        default=None,
+        description="Ed25519 signature over this response's other fields, so a downstream agent can verify offline that this service (not a relay or a cached copy) produced these citations. See GET /api/v1/pubkey.",
+    )
 
 
 class DocumentOut(BaseModel):
@@ -168,9 +198,45 @@ class HealthResponse(BaseModel):
 
 
 class VersionResponse(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"examples": [{"version": "0.1.0"}]})
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "version": "0.1.0",
+                    "corpus_last_ingested_at": "2026-06-15T09:00:00Z",
+                    "corpus_age_days": 25,
+                }
+            ]
+        }
+    )
 
     version: str
+    corpus_last_ingested_at: datetime | None = Field(
+        default=None,
+        description="Timestamp of the most recently ingested source document (max `ingested_at` across the corpus), or null if the corpus is empty/unreachable. Law text goes stale - check this before assuming a citation reflects current law.",
+    )
+    corpus_age_days: int | None = Field(
+        default=None,
+        description="Days since `corpus_last_ingested_at`, or null if that's null. A large number means nothing has been re-ingested in a while - re-run the ingestion scripts against the live sources before trusting time-sensitive citations.",
+    )
+
+
+class PublicKeyResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "public_key": "b1e0...7d",
+                    "algorithm": "ed25519",
+                    "note": "Verify any response's `provenance.signature` against this key - see docs/PROVENANCE.md for the canonicalization recipe.",
+                }
+            ]
+        }
+    )
+
+    public_key: str = Field(description="Ed25519 public key (hex, raw 32 bytes) for this deployment. Ephemeral unless SIGNING_PRIVATE_KEY_SEED_HEX is set - see docs/PROVENANCE.md.")
+    algorithm: str = "ed25519"
+    note: str = "Verify any response's provenance.signature against this key - see docs/PROVENANCE.md for the canonicalization recipe."
 
 
 class IngestRequest(BaseModel):
@@ -356,7 +422,7 @@ class TopicFilterRequest(BaseModel):
     query: str | None = Field(default=None, description="Optional keywords to additionally rank within the filtered set.")
     topic: str | None = Field(default=None, description="Restrict to one chapter/article, e.g. 'NOISE CONTROL' or 'ANIMALS'.")
     limit: int = Field(default=10, ge=1, le=50)
-    search_mode: str | None = Field(default=None, description="Override the default ranking engine for this call only: 'text_index' or 'in_app'.")
+    search_mode: str | None = Field(default=None, description="Override the default ranking engine for this call only: 'text_index', 'in_app', or 'idf' (see /search's search_mode for details).")
 
 
 class TopicFilterResponse(BaseModel):
@@ -433,3 +499,7 @@ class ActionCheckResponse(BaseModel):
     citations: list[ActionCitation]
     reasoning: str = Field(description="Mechanical explanation of the determination - always read this before repeating `allowed` as a legal conclusion (see SKILL.md Rule 7).")
     confidence: str = Field(description="'high' (explicit, decisively top-ranked statement), 'medium' (explicit statement with ambiguous ranking, or an absence-of-restriction inference), or 'low' (nothing relevant found).")
+    provenance: Provenance | None = Field(
+        default=None,
+        description="Ed25519 signature over this response's other fields, so a downstream agent can verify offline that this service (not a relay or a cached copy) produced this determination. See GET /api/v1/pubkey.",
+    )

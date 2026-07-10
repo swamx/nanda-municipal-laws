@@ -20,8 +20,9 @@
 | `INGEST_MAX_URLS` | no | `10` | Hard cap on URLs per `/ingest` call, to stay inside the serverless execution budget |
 | `RATE_LIMIT_PER_MINUTE` | no | `10` | Requests/minute per client IP for `/search`, `/is_action_allowed`, `/sections/*`, `/penalties`, `/permits`, `/documents/*`, `/health`, `/version` |
 | `INGEST_RATE_LIMIT_PER_MINUTE` | no | `1` | Requests/minute per client IP for `/ingest` specifically — its own stricter bucket, since it triggers outbound fetches and Atlas writes |
-| `SEARCH_MODE` | no | `text_index` | `text_index` (native MongoDB `$text`) or `in_app` (Python TF scoring). Overridable per-request via `search_mode` in the request body. |
+| `SEARCH_MODE` | no | `text_index` | `text_index` (native MongoDB `$text`), `in_app` (Python TF scoring), or `idf` (Python IDF-weighted scoring - see [ARCHITECTURE.md](./ARCHITECTURE.md)). Overridable per-request via `search_mode` in the request body. |
 | `APP_VERSION` | no | `0.1.0` | Reported by `/` and `/api/v1/version` |
+| `SIGNING_PRIVATE_KEY_SEED_HEX` | no | unset (ephemeral key) | 32 random bytes, hex-encoded — seeds the Ed25519 key that signs `/is_action_allowed` and `/search` responses. Unset means a fresh key is generated per process, so the public key at `/api/v1/pubkey` can change across serverless cold starts. **Set this before relying on signature verification across sessions.** Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. See [PROVENANCE.md](./PROVENANCE.md). |
 
 Copy `.env.example` to `.env` and fill these in for local development.
 
@@ -59,6 +60,7 @@ vercel env add MONGO_ATLAS_CONN_STR production
 vercel env add MONGODB_DB_NAME production
 vercel env add INGEST_API_KEY production     # strongly recommended for a public URL
 vercel env add RATE_LIMIT_PER_MINUTE production   # optional, defaults to 10
+vercel env add SIGNING_PRIVATE_KEY_SEED_HEX production   # recommended - stable Ed25519 key across cold starts
 ```
 
 Vercel auto-discovers the FastAPI `app` instance via `api/index.py` (zero-config ASGI support — no `mangum` adapter needed). `vercel.json` sets `maxDuration: 60`, the maximum allowed on the Hobby plan without Fluid Compute, giving `/ingest` headroom to fetch multiple pages in one call. If you enable Fluid Compute, Hobby supports up to 300s — raise `maxDuration` accordingly if you plan to ingest larger batches.

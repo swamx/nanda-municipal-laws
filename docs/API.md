@@ -58,8 +58,26 @@ curl -s http://localhost:8000/api/v1/version
 ```
 
 ```json
-{"version": "0.1.0"}
+{"version": "0.1.0", "corpus_last_ingested_at": "2026-06-15T09:00:00Z", "corpus_age_days": 25}
 ```
+
+`corpus_last_ingested_at`/`corpus_age_days` are the max `ingested_at` across all ingested source documents, and its age in days — both `null` if the corpus is empty or the database is unreachable (never an error response). Law text goes stale; check this before assuming a citation reflects current law, and re-run the ingestion scripts (see the root [README](../README.md#4-seed-real-law-data)) if it's been a while.
+
+---
+
+## `GET /api/v1/pubkey`
+
+Not rate-limited.
+
+```bash
+curl -s http://localhost:8000/api/v1/pubkey
+```
+
+```json
+{"public_key": "b1e0...7d", "algorithm": "ed25519", "note": "Verify any response's provenance.signature against this key - see docs/PROVENANCE.md for the canonicalization recipe."}
+```
+
+The Ed25519 public key that verifies every `provenance.signature` on `/is_action_allowed` and `/search` responses — see [PROVENANCE.md](./PROVENANCE.md) for the exact verification recipe and a runnable example. Ephemeral (regenerated per process) unless `SIGNING_PRIVATE_KEY_SEED_HEX` is set — see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ---
 
@@ -92,13 +110,16 @@ curl -s -X POST http://localhost:8000/api/v1/is_action_allowed \
     {"section_number": "161.19", "section_title": "Keeping of livestock, live poultry and rabbits", "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=16", "document_type": "NYC Health Code", "matched_text": "§161.19 Keeping of livestock, live poultry and rabbits. (a) No person shall keep a live rooster..."}
   ],
   "reasoning": "§161.19 is the closest-matching provision, but contains no explicit prohibition or permission statement matching keywords in the requested action - this is an absence-of-restriction inference, not an affirmative statement. Read the full section text before relying on it.",
-  "confidence": "medium"
+  "confidence": "medium",
+  "provenance": {"signature": "3a5f...c9", "public_key": "b1e0...7d", "signed_at": "2026-07-10T15:00:00Z", "algorithm": "ed25519"}
 }
 ```
 
 `allowed` is `true`/`false` **only** when an explicit prohibition or permission statement was found (word-boundary keyword match against the closest-matching section's text); `null` when no relevant provision was found at all — silence is never treated as evidence of legality. `confidence` is `"high"` for an explicit statement backed by a decisively top-ranked section, `"medium"` for either an explicit statement with an ambiguous ranking or an absence-of-restriction inference, `"low"` when nothing relevant was found.
 
-**Known limitation**: because ranking is keyword-based, a query sharing even one common/generic word with an unrelated section (e.g. "party" as in "a party to an action" vs. a celebration; "roof" as a building material vs. a rooftop location) can surface an off-topic citation with a plausible-looking `allowed` value. The citation and matched text are always real (never fabricated), but may not actually be on-topic — callers should read `reasoning` before treating `allowed` as a final answer. See `tests/test_is_action_allowed.py::test_known_limitation_coincidental_common_word_can_still_match`, which pins this behavior deliberately rather than hiding it, and [DATA_SOURCE.md](./DATA_SOURCE.md) for how this was discovered.
+`provenance` is an Ed25519 signature over every other field in this response — verify it against `GET /api/v1/pubkey` to prove offline that this service (not a relay or a cached copy) produced this determination. See [PROVENANCE.md](./PROVENANCE.md).
+
+**Known limitation**: because ranking is keyword-based, a query sharing even one common/generic word with an unrelated section (e.g. "party" as in "a party to an action" vs. a celebration; "roof" as a building material vs. a rooftop location) can surface an off-topic citation with a plausible-looking `allowed` value. The citation and matched text are always real (never fabricated), but may not actually be on-topic — callers should read `reasoning` before treating `allowed` as a final answer. See `tests/test_is_action_allowed.py::test_known_limitation_coincidental_common_word_can_still_match`, which pins this behavior deliberately rather than hiding it, and [DATA_SOURCE.md](./DATA_SOURCE.md) for how this was discovered. `/search` (not `/is_action_allowed`, which doesn't expose `search_mode`) can be called with `"search_mode": "idf"` to reduce exactly this class of false positive — see the `search_mode` row below and [ARCHITECTURE.md](./ARCHITECTURE.md#search-two-interchangeable-modes-text-by-default).
 
 A small, explicitly curated synonym list (`app/action_rules.py::ACTION_QUERY_SYNONYMS`) bridges a handful of common colloquial terms to the statutory vocabulary actually used in the ingested text (e.g. "chicken"/"hen" → "poultry", since the real §161.19 text never uses the word "chicken"). This is not a general thesaurus — actions using vocabulary outside this small list fall back to the same literal-keyword-matching behavior as `/search`.
 
@@ -119,7 +140,7 @@ Request body:
 | `document_type` | string | no | `"NYC Administrative Code"` or `"NYC Health Code"` |
 | `agency` | string | no | e.g. `"Department of Health and Mental Hygiene (DOHMH)"` |
 | `topic` | string | no | chapter/article name, e.g. `"ANIMALS"` |
-| `search_mode` | string | no | `"text_index"` (default) or `"in_app"` — overrides `SEARCH_MODE` for this call only; see [ARCHITECTURE.md](./ARCHITECTURE.md#search-two-interchangeable-modes-text-by-default) |
+| `search_mode` | string | no | `"text_index"` (default), `"in_app"`, or `"idf"` (down-weights query terms shared across most candidates — still deterministic, no embedding model or LLM) — overrides `SEARCH_MODE` for this call only; see [ARCHITECTURE.md](./ARCHITECTURE.md#search-two-interchangeable-modes-text-by-default) |
 
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/search \
@@ -144,9 +165,12 @@ curl -s -X POST http://localhost:8000/api/v1/search \
     }
   ],
   "count": 1,
-  "reasoning": "matched query 'rooster keeping poultry' against 41 candidate chunk(s) after applying filters; ranked by term frequency, title weighted higher than body"
+  "reasoning": "matched query 'rooster keeping poultry' against 41 candidate chunk(s) after applying filters; ranked by term frequency, title weighted higher than body",
+  "provenance": {"signature": "3a5f...c9", "public_key": "b1e0...7d", "signed_at": "2026-07-10T15:00:00Z", "algorithm": "ed25519"}
 }
 ```
+
+`provenance` is an Ed25519 signature over every other field in this response — see [PROVENANCE.md](./PROVENANCE.md) to verify it.
 
 ---
 

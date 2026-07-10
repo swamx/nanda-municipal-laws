@@ -43,6 +43,19 @@ def test_search_can_be_overridden_to_in_app_mode_per_request(client, monkeypatch
     assert "in-app scoring" in body["reasoning"]
 
 
+def test_search_can_be_overridden_to_idf_mode_per_request(client, monkeypatch):
+    _ingest(client, monkeypatch)
+
+    response = client.post(
+        "/api/v1/search",
+        json={"query": "after hours weekend limits construction work", "search_mode": "idf"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"][0]["section_number"] == "24-222"
+    assert "IDF-weighted" in body["reasoning"]
+
+
 def test_search_falls_back_to_in_app_when_text_index_unavailable(client, monkeypatch):
     _ingest(client, monkeypatch)
 

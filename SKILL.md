@@ -44,7 +44,8 @@ curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/is_action_allowed
     {"section_number": "161.19", "section_title": "Keeping of livestock, live poultry and rabbits", "url": "https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article161.pdf#page=16", "document_type": "NYC Health Code", "matched_text": "§161.19 Keeping of livestock, live poultry and rabbits. (a) No person shall keep a live rooster..."}
   ],
   "reasoning": "§161.19 is the closest-matching provision, but contains no explicit prohibition or permission statement matching keywords in the requested action - this is an absence-of-restriction inference, not an affirmative statement. Read the full section text before relying on it.",
-  "confidence": "medium"
+  "confidence": "medium",
+  "provenance": {"signature": "3a5f...c9", "public_key": "b1e0...7d", "signed_at": "2026-07-10T15:00:00Z", "algorithm": "ed25519"}
 }
 ```
 
@@ -77,9 +78,12 @@ curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/search \
     }
   ],
   "count": 1,
-  "reasoning": "matched query 'rooster keeping poultry' against 41 candidate chunk(s) after applying filters; ranked by term frequency, title weighted higher than body"
+  "reasoning": "matched query 'rooster keeping poultry' against 41 candidate chunk(s) after applying filters; ranked by term frequency, title weighted higher than body",
+  "provenance": {"signature": "3a5f...c9", "public_key": "b1e0...7d", "signed_at": "2026-07-10T15:00:00Z", "algorithm": "ed25519"}
 }
 ```
+
+Optional `search_mode: "idf"` down-weights query terms shared across most candidates (still deterministic, no embedding model or LLM) - use it when a generic shared word risks outranking the actual topical match (see Rule 7).
 
 ### `GET /api/v1/sections/{section_number}`
 
@@ -213,6 +217,34 @@ curl -s https://nanda-municipal-laws.vercel.app/api/v1/health
 {"status": "ok"}
 ```
 
+### `GET /api/v1/version`
+
+Deployed version plus corpus freshness — law text goes stale, so check `corpus_age_days` before assuming a citation reflects current law.
+
+```bash
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/version
+```
+
+```json
+{"version": "0.1.0", "corpus_last_ingested_at": "2026-06-15T09:00:00Z", "corpus_age_days": 25}
+```
+
+### `GET /api/v1/pubkey`
+
+The Ed25519 public key that verifies `provenance.signature` on `/is_action_allowed` and `/search` responses (see Rule 8 below and [docs/PROVENANCE.md](./docs/PROVENANCE.md)).
+
+```bash
+curl -s https://nanda-municipal-laws.vercel.app/api/v1/pubkey
+```
+
+```json
+{"public_key": "b1e0...7d", "algorithm": "ed25519", "note": "Verify any response's provenance.signature against this key - see docs/PROVENANCE.md."}
+```
+
+### MCP transport
+
+Everything above is also reachable as MCP tools (`is_action_allowed`, `search_municipal_law`, `get_section`, `get_related_sections`, `find_penalties`, `find_permits`) via `mcp_server/` — see [mcp_server/README.md](./mcp_server/README.md) if your agent runtime is MCP-native rather than raw HTTP. Same underlying API, same citations, same rules below.
+
 ## Not currently supported
 
 - **Zoning lookup by address** (`find_zoning`) — needs NYC GIS/PLUTO address-to-district resolution, a different data domain than the ingested law text. Don't guess at coverage; say this isn't supported if asked.
@@ -243,7 +275,8 @@ Confidence isn't returned by the API — compute it yourself from what you got b
 4. **`mentions_penalty`/`mentions_permit` are heuristics** (keyword-based), not a legal determination that a penalty or permit requirement definitely does or doesn't apply — read the actual `text` before asserting either way.
 5. **If results are empty, say so.** Don't answer from general knowledge as if it came from this service.
 6. **Scope**: the entire NYC Administrative Code (all titles) and the entire NYC Health Code (all articles) are ingested — see [docs/COVERAGE.md](./docs/COVERAGE.md) in the source repo for the exact live manifest. If a search genuinely returns nothing, say so; don't assume it's a coverage gap before retrying with different literal keywords.
-7. **`is_action_allowed`'s `allowed` field can be `true`, `false`, or `null`.** `null` means no relevant provision was found — never treat it as "probably fine." `true` from an absence-of-restriction inference (no explicit prohibition found, `confidence: "medium"`) is a materially weaker claim than `true` from an explicit permission statement (`confidence: "high"`) — the `reasoning` field tells you which one you got. Because this tool ranks by shared keywords, a query overlapping an unrelated section on just one common word (e.g. "party" as in "a party to an action," or "roof" as a building material vs. a rooftop location) can surface an off-topic citation — always read `reasoning` and the cited text yourself before repeating the verdict; don't repeat `allowed` to a user as a legal conclusion without that check.
+7. **`is_action_allowed`'s `allowed` field can be `true`, `false`, or `null`.** `null` means no relevant provision was found — never treat it as "probably fine." `true` from an absence-of-restriction inference (no explicit prohibition found, `confidence: "medium"`) is a materially weaker claim than `true` from an explicit permission statement (`confidence: "high"`) — the `reasoning` field tells you which one you got. Because this tool ranks by shared keywords, a query overlapping an unrelated section on just one common word (e.g. "party" as in "a party to an action," or "roof" as a building material vs. a rooftop location) can surface an off-topic citation — always read `reasoning` and the cited text yourself before repeating the verdict; don't repeat `allowed` to a user as a legal conclusion without that check. If this class of false positive matters for your use case, call `/search` (not `/is_action_allowed`) with `"search_mode": "idf"` to down-weight the shared generic term.
+8. **Every `/is_action_allowed` and `/search` response carries a `provenance` object** (Ed25519 signature over the rest of the response). If you're relaying citations to another agent or composing with another skill, verify it against `GET /api/v1/pubkey` per [docs/PROVENANCE.md](./docs/PROVENANCE.md) rather than re-fetching to confirm authenticity - a valid signature proves this service produced the citations, not that the underlying law is current (check `corpus_age_days` from `GET /api/v1/version` for that).
 
 ## How to use this service
 

@@ -4,6 +4,7 @@ from pymongo.database import Database
 from app.db import get_db
 from app.models import SearchRequest, SearchResponse
 from app.retrieval import search_chunks
+from app.signing import sign_response
 
 router = APIRouter(tags=["Search"])
 
@@ -37,4 +38,6 @@ def search(payload: SearchRequest, db: Database = Depends(get_db)) -> SearchResp
         topic=payload.topic,
         search_mode=payload.search_mode,
     )
-    return SearchResponse(query=payload.query, results=results, count=len(results), reasoning=reasoning)
+    response = SearchResponse(query=payload.query, results=results, count=len(results), reasoning=reasoning)
+    provenance = sign_response(response)
+    return response.model_copy(update={"provenance": provenance})

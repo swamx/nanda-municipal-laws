@@ -29,7 +29,17 @@ class FakeCursor:
     def __init__(self, docs: list[dict]):
         self._docs = list(docs)
 
-    def sort(self, *args, **kwargs) -> "FakeCursor":
+    def sort(self, key_or_list, direction: int | None = None) -> "FakeCursor":
+        """Real single-field sort (ascending=1/descending=-1), needed by
+        get_latest_ingested_at(). The `$text`/textScore meta-sort form used
+        elsewhere is a no-op here since FakeLawsCollection.find() already
+        sorts by score when a $text query is present - any non-1 direction
+        (including a {"$meta": ...} dict) is treated as descending, matching
+        that existing behavior.
+        """
+        field, direction_value = (key_or_list, direction) if isinstance(key_or_list, str) else list(key_or_list)[0]
+        reverse = direction_value != 1
+        self._docs.sort(key=lambda d: d.get(field), reverse=reverse)
         return self
 
     def limit(self, n: int) -> "FakeCursor":

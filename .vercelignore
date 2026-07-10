@@ -4,5 +4,6 @@ docs
 scripts
 postman
 local_agent
+mcp_server
 .pytest_cache
 requirements-dev.txt

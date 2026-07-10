@@ -1,6 +1,7 @@
 import sys
+from datetime import datetime
 
-from pymongo import ASCENDING, MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.database import Database
 from pymongo.errors import OperationFailure
 
@@ -27,6 +28,15 @@ def ping(db: Database | None = None) -> bool:
     db = db if db is not None else get_db()
     db.command("ping")
     return True
+
+
+def get_latest_ingested_at(db: Database | None = None) -> datetime | None:
+    """Max `ingested_at` across ingested source documents, for the corpus
+    freshness signal on GET /version - null if the corpus is empty."""
+    db = db if db is not None else get_db()
+    cursor = db[LAWS_COLLECTION].find({"type": "document"}).sort("ingested_at", DESCENDING).limit(1)
+    docs = list(cursor)
+    return docs[0]["ingested_at"] if docs else None
 
 
 TEXT_INDEX_NAME = "chunks_text_idx"
