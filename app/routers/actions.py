@@ -12,7 +12,7 @@ router = APIRouter(tags=["Legal Determination"])
 @router.post(
     "/is_action_allowed",
     response_model=ActionCheckResponse,
-    summary="Determine whether a described action is legal in NYC",
+    summary="Determine whether a described action is legal in Nandatown (e.g., NYC)",
     description=(
         "**The headline capability of this skill.** Describe an action in plain language "
         "(e.g. \"Keep backyard chickens\", \"Operate a food truck in Central Park\") and get back "

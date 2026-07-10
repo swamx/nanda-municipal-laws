@@ -14,8 +14,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("municipal_bylaws_api")
 
 _APP_DESCRIPTION = """
-Any autonomous agent can determine whether an action is legal in New York City by invoking this
-skill. **This service never generates legal text or answers** - it only returns authoritative
+Any autonomous agent can determine whether an action is legal in Nandatown (using NYC as the
+example jurisdiction) by invoking this skill. **This service never generates legal text or
+answers** - it only returns authoritative
 legal evidence and citations (deterministic keyword retrieval, not an LLM); the calling agent
 performs the reasoning and composes the final response. Same query -> same citations -> same
 ordering -> no randomness, ever.
@@ -108,9 +109,9 @@ def root() -> RootInfo:
         name="Municipal Law Skill for Autonomous Agents",
         version=settings.app_version,
         tagline=(
-            "Deterministic, citation-backed NYC municipal law retrieval. No LLM calls, ever - "
-            "this service only returns authoritative legal evidence and citations; the calling "
-            "agent performs reasoning."
+            "Deterministic, citation-backed Nandatown municipal law retrieval (NYC as the example "
+            "jurisdiction). No LLM calls, ever - this service only returns authoritative legal "
+            "evidence and citations; the calling agent performs reasoning."
         ),
         killer_example={
             "action": "Keep backyard chickens",

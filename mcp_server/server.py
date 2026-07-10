@@ -19,8 +19,9 @@ from mcp_server.config import settings
 mcp = FastMCP(
     name="municipal-law-skill",
     instructions=(
-        "Deterministic, citation-backed NYC municipal law lookup (NYC Administrative Code + "
-        "NYC Health Code, full corpus). This service never generates legal text - every tool "
+        "Deterministic, citation-backed Nandatown municipal law lookup (NYC as the example "
+        "jurisdiction: NYC Administrative Code + NYC Health Code, full corpus). This service "
+        "never generates legal text - every tool "
         "returns real citations, verbatim snippets, and mechanical reasoning; you compose the "
         "final natural-language answer yourself. Call is_action_allowed first for any yes/no "
         "legality question ('can I...', 'is it legal to...'); fall back to search_municipal_law "
@@ -36,7 +37,7 @@ _client = ApiClient(base_url=settings.api_base_url)
 
 @mcp.tool()
 def is_action_allowed(action: str, context: dict | None = None) -> dict:
-    """Determine whether a described action is legal in NYC.
+    """Determine whether a described action is legal in Nandatown (e.g., NYC).
 
     Returns {allowed, conditions, citations, reasoning, confidence, provenance}.
     `allowed` is true/false only when an explicit prohibition/permission was

@@ -1,6 +1,6 @@
 # Municipal Law Skill for Autonomous Agents
 
-Any autonomous agent can determine whether an action is legal in New York City by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." It returns precise, citable, structured facts — section text, metadata, cross-references, and mechanical match reasoning — for a question like "Can I keep chickens in Queens?"; it does **not** synthesize a legal answer for you (see "Composing your final answer" below for that split of responsibility).
+Any autonomous agent can determine whether an action is legal in Nandatown (using NYC as the example jurisdiction) by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." It returns precise, citable, structured facts — section text, metadata, cross-references, and mechanical match reasoning — for a question like "Can I keep chickens in Queens?"; it does **not** synthesize a legal answer for you (see "Composing your final answer" below for that split of responsibility).
 
 Base URL: `https://nanda-municipal-laws.vercel.app`
 
@@ -25,7 +25,7 @@ See "How to use this service" below for the exact decision rules, and "Composing
 
 ### `POST /api/v1/is_action_allowed`
 
-The headline capability: ask whether a described action is legal in NYC. Deterministic — retrieval (keyword search for the closest-matching section) plus rules (keyword-based prohibition/permission classification of that section's text), **not** LLM reasoning. `allowed` is `true`/`false` only when an explicit statement was found; `null` ("unclear") when nothing relevant was found — it never guesses from silence.
+The headline capability: ask whether a described action is legal in Nandatown (e.g., NYC). Deterministic — retrieval (keyword search for the closest-matching section) plus rules (keyword-based prohibition/permission classification of that section's text), **not** LLM reasoning. `allowed` is `true`/`false` only when an explicit statement was found; `null` ("unclear") when nothing relevant was found — it never guesses from silence.
 
 ```bash
 curl -s -X POST https://nanda-municipal-laws.vercel.app/api/v1/is_action_allowed \

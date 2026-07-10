@@ -51,7 +51,7 @@ class RootInfo(BaseModel):
                 {
                     "name": "Municipal Law Skill for Autonomous Agents",
                     "version": "0.1.0",
-                    "tagline": "Deterministic, citation-backed NYC municipal law retrieval. No LLM calls, ever - this service only returns authoritative legal evidence and citations; the calling agent performs reasoning.",
+                    "tagline": "Deterministic, citation-backed Nandatown municipal law retrieval (NYC as the example jurisdiction). No LLM calls, ever - this service only returns authoritative legal evidence and citations; the calling agent performs reasoning.",
                     "killer_example": {
                         "action": "Keep backyard chickens",
                         "call": "POST /api/v1/is_action_allowed",

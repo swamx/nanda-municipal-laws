@@ -1,6 +1,6 @@
 # Municipal Law Skill for Autonomous Agents
 
-Any autonomous agent can determine whether an action is legal in New York City by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." Built for the MIT Hackathon as a reusable agent capability (a NANDA-style skill), not a bespoke chatbot: any agent that can call an HTTP endpoint can invoke it, per [SKILL.md](./SKILL.md).
+Any autonomous agent can determine whether an action is legal in Nandatown (using NYC as the example jurisdiction) by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." Built for the MIT Hackathon as a reusable agent capability (a NANDA-style skill), not a bespoke chatbot: any agent that can call an HTTP endpoint can invoke it, per [SKILL.md](./SKILL.md).
 
 The skill returns structured facts with citations and mechanical `reasoning` — never a fabricated answer. It never calls an LLM internally; see [SKILL.md](./SKILL.md) for exactly how a calling agent should compose its final response from what this API returns.
 

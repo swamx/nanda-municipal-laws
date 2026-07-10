@@ -2,7 +2,7 @@
 
 ## Goal and scope
 
-A reusable agent capability, not a bespoke chatbot backend: any autonomous agent can determine whether an action is legal in New York City by invoking this skill through a small, stateless REST API — search for relevant sections, look one up directly, resolve its cross-references, filter by penalty/permit relevance, then retrieve the full document/chunk for citation. Deterministic, citation-backed, explainable — rather than a RAG/LLM-answer system: no embeddings, no vector database, no LLM calls, no server-synthesized "answer." The API returns structured results plus a mechanical `reasoning` string explaining *how* a result was derived; the calling agent (see `SKILL.md`) composes the final natural-language answer, sources, and confidence from those citations.
+A reusable agent capability, not a bespoke chatbot backend: any autonomous agent can determine whether an action is legal in Nandatown (using NYC as the example jurisdiction) by invoking this skill through a small, stateless REST API — search for relevant sections, look one up directly, resolve its cross-references, filter by penalty/permit relevance, then retrieve the full document/chunk for citation. Deterministic, citation-backed, explainable — rather than a RAG/LLM-answer system: no embeddings, no vector database, no LLM calls, no server-synthesized "answer." The API returns structured results plus a mechanical `reasoning` string explaining *how* a result was derived; the calling agent (see `SKILL.md`) composes the final natural-language answer, sources, and confidence from those citations.
 
 ## Data flow
 
