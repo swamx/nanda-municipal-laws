@@ -4,7 +4,7 @@ Any autonomous agent can determine whether an action is legal in Nandatown (usin
 
 Base URL: `https://nanda-municipal-laws.vercel.app`
 
-**The complete corpus, not a sample**: all 32 titles / 4,781 sections of the NYC Administrative Code, plus all 36 articles / 501 sections of the NYC Health Code — 668 source documents, 10,702 searchable chunks. See [docs/COVERAGE.md](./docs/COVERAGE.md) for the exact live manifest.
+**The complete corpus, not a sample**: all 32 titles / 4,781 sections of the NYC Administrative Code, plus all 36 articles / 501 sections of the NYC Health Code — 668 source documents, 10,702 searchable chunks. (Repo-only, not required to use this skill: [docs/COVERAGE.md](https://github.com/swamx/nanda-municipal-laws/blob/main/docs/COVERAGE.md) has the exact live manifest.)
 
 ## Agent workflow
 
@@ -231,7 +231,7 @@ curl -s https://nanda-municipal-laws.vercel.app/api/v1/version
 
 ### `GET /api/v1/pubkey`
 
-The Ed25519 public key that verifies `provenance.signature` on `/is_action_allowed` and `/search` responses (see Rule 8 below and [docs/PROVENANCE.md](./docs/PROVENANCE.md)).
+The Ed25519 public key that verifies `provenance.signature` on `/is_action_allowed` and `/search` responses — see Rule 8 below for the full inline verification recipe.
 
 ```bash
 curl -s https://nanda-municipal-laws.vercel.app/api/v1/pubkey
@@ -243,7 +243,7 @@ curl -s https://nanda-municipal-laws.vercel.app/api/v1/pubkey
 
 ### MCP transport
 
-Everything above is also reachable as MCP tools (`is_action_allowed`, `search_municipal_law`, `get_section`, `get_related_sections`, `find_penalties`, `find_permits`) via `mcp_server/` — see [mcp_server/README.md](./mcp_server/README.md) if your agent runtime is MCP-native rather than raw HTTP. Same underlying API, same citations, same rules below.
+Everything above is also reachable as MCP tools (`is_action_allowed`, `search_municipal_law`, `get_section`, `get_related_sections`, `find_penalties`, `find_permits`) via `mcp_server/` in the source repo, for agent runtimes that are MCP-native rather than raw HTTP - see [mcp_server/README.md](https://github.com/swamx/nanda-municipal-laws/blob/main/mcp_server/README.md) (repo-only, not required to use this skill over HTTP). Same underlying API, same citations, same rules below.
 
 ## Not currently supported
 
@@ -274,9 +274,27 @@ Confidence isn't returned by the API — compute it yourself from what you got b
 3. **This is keyword search, not semantic search.** Term frequency drives `/search` ranking, not phrase meaning — retry with different literal keywords before concluding there's no coverage.
 4. **`mentions_penalty`/`mentions_permit` are heuristics** (keyword-based), not a legal determination that a penalty or permit requirement definitely does or doesn't apply — read the actual `text` before asserting either way.
 5. **If results are empty, say so.** Don't answer from general knowledge as if it came from this service.
-6. **Scope**: the entire NYC Administrative Code (all titles) and the entire NYC Health Code (all articles) are ingested — see [docs/COVERAGE.md](./docs/COVERAGE.md) in the source repo for the exact live manifest. If a search genuinely returns nothing, say so; don't assume it's a coverage gap before retrying with different literal keywords.
+6. **Scope**: the entire NYC Administrative Code (all titles) and the entire NYC Health Code (all articles) are ingested — see [docs/COVERAGE.md](https://github.com/swamx/nanda-municipal-laws/blob/main/docs/COVERAGE.md) in the source repo for the exact live manifest (repo-only, not required to use this skill). If a search genuinely returns nothing, say so; don't assume it's a coverage gap before retrying with different literal keywords.
 7. **`is_action_allowed`'s `allowed` field can be `true`, `false`, or `null`.** `null` means no relevant provision was found — never treat it as "probably fine." `true` from an absence-of-restriction inference (no explicit prohibition found, `confidence: "medium"`) is a materially weaker claim than `true` from an explicit permission statement (`confidence: "high"`) — the `reasoning` field tells you which one you got. Because this tool ranks by shared keywords, a query overlapping an unrelated section on just one common word (e.g. "party" as in "a party to an action," or "roof" as a building material vs. a rooftop location) can surface an off-topic citation — always read `reasoning` and the cited text yourself before repeating the verdict; don't repeat `allowed` to a user as a legal conclusion without that check. If this class of false positive matters for your use case, call `/search` (not `/is_action_allowed`) with `"search_mode": "idf"` to down-weight the shared generic term.
-8. **Every `/is_action_allowed` and `/search` response carries a `provenance` object** (Ed25519 signature over the rest of the response). If you're relaying citations to another agent or composing with another skill, verify it against `GET /api/v1/pubkey` per [docs/PROVENANCE.md](./docs/PROVENANCE.md) rather than re-fetching to confirm authenticity - a valid signature proves this service produced the citations, not that the underlying law is current (check `corpus_age_days` from `GET /api/v1/version` for that).
+8. **Every `/is_action_allowed` and `/search` response carries a `provenance` object** (Ed25519 signature over the rest of the response), so a downstream agent can prove offline that this service produced a citation - not a relay, not a cache. If you're relaying citations to another agent or composing with another skill, verify it yourself (everything needed is right here, no other file required):
+   - Fetch the current key: `GET /api/v1/pubkey` → `{"public_key": "<hex>", "algorithm": "ed25519"}`.
+   - Canonicalize: take the response, drop the `provenance` field, serialize the rest as compact, sorted-key JSON.
+   - Verify `provenance.signature` (hex) against that canonical byte string with the Ed25519 public key.
+   ```python
+   import json
+   from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+   def verify(response_body: dict, public_key_hex: str) -> bool:
+       signable = {k: v for k, v in response_body.items() if k != "provenance"}
+       canonical = json.dumps(signable, sort_keys=True, separators=(",", ":"), default=str).encode()
+       key = Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_key_hex))
+       try:
+           key.verify(bytes.fromhex(response_body["provenance"]["signature"]), canonical)
+           return True
+       except Exception:
+           return False
+   ```
+   A valid signature proves this service produced the citations, not that the underlying law is current (check `corpus_age_days` from `GET /api/v1/version` for that). More detail (repo-only, not required to use this skill): [docs/PROVENANCE.md](https://github.com/swamx/nanda-municipal-laws/blob/main/docs/PROVENANCE.md).
 
 ## How to use this service
 
