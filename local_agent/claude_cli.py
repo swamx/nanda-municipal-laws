@@ -40,10 +40,16 @@ def ask_structured(
     out to a CLI tool like this.
     """
     binary = _find_claude_binary()
+    # The prompt is piped over stdin, not passed as a CLI argument: it can
+    # embed a full statute section's text (thousands of characters, e.g. via
+    # agent.py's needs_full_text follow-up), and Windows' CreateProcess has a
+    # hard ~32K total command-line length limit - a real failure observed
+    # while building this ("[WinError 206] The filename or extension is too
+    # long") once a long section's full text was folded into the prompt.
+    # `-p` with no value after it means "read the prompt from stdin".
     args = [
         binary,
         "-p",
-        prompt,
         "--output-format",
         "json",
         "--tools",
@@ -59,6 +65,7 @@ def ask_structured(
     try:
         proc = subprocess.run(
             args,
+            input=prompt,
             capture_output=True,
             text=True,
             timeout=timeout,

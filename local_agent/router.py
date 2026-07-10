@@ -20,6 +20,13 @@ Example: "Can I keep backyard chickens in Queens?" -> \
 query_or_action="keep backyard chickens", context={{"borough": "Queens"}} \
 (NOT query_or_action="keep backyard chickens in Queens").
 
+IMPORTANT - set `needs_full_text=true` whenever the user asks for the exact penalty amount/fine, \
+the precise statutory wording, or an explicit document snippet/quote - search/penalties/permits \
+results are ranked snippets and can be truncated, so this triggers an automatic full-text \
+follow-up lookup instead of quoting a cut-off snippet. Example: "what is the penalty for garbage \
+not disposed correctly, give me document snippet as well" -> endpoint="penalties", \
+needs_full_text=true.
+
 --- SKILL.md ---
 {skill_md}
 """

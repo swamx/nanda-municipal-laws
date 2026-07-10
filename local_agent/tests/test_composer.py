@@ -44,6 +44,9 @@ def test_compose_answer_includes_the_raw_api_response_and_skill_md_in_the_prompt
     # (1000+ output tokens, 30-40s) - this instruction measurably shortens
     # them without dropping the citation/caveat content.
     assert "concise" in captured["system_prompt"].lower()
+    # Instructs the composer to prefer the enriched full-text follow-up
+    # (see agent.py::_maybe_attach_full_text) over a truncated snippet.
+    assert "full_text_of_top_result" in captured["system_prompt"]
 
 
 def test_compose_answer_passes_model_through(monkeypatch):

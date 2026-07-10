@@ -33,6 +33,19 @@ class RoutingDecision(BaseModel):
         default=None,
         description="Optional document_type filter, only meaningful for the search endpoint.",
     )
+    needs_full_text: bool = Field(
+        default=False,
+        description=(
+            "Set true when the user is asking for the exact penalty amount/fine, the precise "
+            "statutory wording, or an explicit 'document snippet'/quote - not just a general "
+            "informational answer. Only meaningful for the search/penalties/permits endpoints, "
+            "whose results are ranked snippets that can be truncated. When true, the agent will "
+            "automatically follow up with a full-text lookup (GET /sections/{section_number}) "
+            "on the top result before composing, instead of quoting a possibly-truncated snippet. "
+            "is_action_allowed/sections/sections_related already return full text, so this has no "
+            "effect for those endpoints."
+        ),
+    )
     reasoning: str = Field(description="Why this endpoint (and not another) was chosen.")
 
 

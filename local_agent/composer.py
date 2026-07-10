@@ -20,6 +20,12 @@ Keep `answer` concise - 2 to 4 sentences covering the verdict, the key caveat, a
 Put any additional supporting detail in `reasoning` instead of padding out `answer`. This is a \
 CLI chat tool, not a legal memo.
 
+If the raw API response below includes a `full_text_of_top_result` field, that is the \
+untruncated section text (fetched via a GET /sections/{{section_number}} follow-up specifically \
+because the user asked for an exact amount/quote/document snippet) - use ITS `text` field for any \
+precise numbers or quoted statutory language, not the possibly-truncated `snippet` field in \
+`results`. Never present a truncated snippet's cut-off text as if it were the complete provision.
+
 --- SKILL.md ---
 {skill_md}
 """

@@ -99,3 +99,26 @@ def test_ask_structured_passes_model_flag_when_given(monkeypatch):
 
     assert "--model" in captured_args["args"]
     assert "opus" in captured_args["args"]
+
+
+def test_ask_structured_pipes_the_prompt_over_stdin_not_as_a_cli_arg(monkeypatch):
+    # Pins a real bug: a long prompt (e.g. agent.py's needs_full_text
+    # follow-up embedding a full statute section's text) passed as a CLI
+    # argument hit Windows' ~32K command-line length limit
+    # ("[WinError 206] The filename or extension is too long"). The prompt
+    # must go over stdin instead, regardless of its length.
+    _patch_which(monkeypatch)
+    captured = {}
+
+    def _fake_run(args, *, input=None, **kwargs):
+        captured["args"] = args
+        captured["input"] = input
+        return _FakeCompletedProcess(0, stdout=json.dumps({"is_error": False, "structured_output": {}}))
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    long_prompt = "x" * 100_000
+    ask_structured(long_prompt, system_prompt="sys", json_schema={"type": "object"})
+
+    assert captured["input"] == long_prompt
+    assert long_prompt not in captured["args"]

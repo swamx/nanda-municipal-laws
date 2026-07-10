@@ -2,7 +2,7 @@
 
 Any autonomous agent can determine whether an action is legal in New York City by invoking this skill. It provides deterministic, citation-backed access to municipal law without using an LLM, so every answer is grounded in the official code — not "search → 14 PDFs, good luck." It returns precise, citable, structured facts — section text, metadata, cross-references, and mechanical match reasoning — for a question like "Can I keep chickens in Queens?"; it does **not** synthesize a legal answer for you (see "Composing your final answer" below for that split of responsibility).
 
-Base URL: `https://nanda-municipal-laws.vercel.app` (use `http://localhost:8000` during local development)
+Base URL: `https://nanda-municipal-laws.vercel.app`
 
 ## Endpoints
 

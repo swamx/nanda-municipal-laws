@@ -77,6 +77,35 @@ def test_decide_route_accepts_context_separate_from_query_or_action(monkeypatch)
     assert decision.context == {"borough": "Queens"}
 
 
+def test_decide_route_parses_needs_full_text(monkeypatch):
+    monkeypatch.setattr(
+        router,
+        "ask_structured",
+        lambda prompt, **kwargs: {
+            "endpoint": "penalties",
+            "query_or_action": "garbage disposal",
+            "needs_full_text": True,
+            "reasoning": "user asked for the exact penalty amount and a document snippet",
+        },
+    )
+
+    decision = router.decide_route("what is the penalty for garbage not disposed correctly, give me document snippet as well")
+
+    assert decision.needs_full_text is True
+
+
+def test_decide_route_defaults_needs_full_text_to_false(monkeypatch):
+    monkeypatch.setattr(
+        router,
+        "ask_structured",
+        lambda prompt, **kwargs: {"endpoint": "search", "query_or_action": "noise", "reasoning": "x"},
+    )
+
+    decision = router.decide_route("what does the noise code say generally?")
+
+    assert decision.needs_full_text is False
+
+
 def test_decide_route_raises_when_claude_returns_an_invalid_endpoint(monkeypatch):
     monkeypatch.setattr(
         router,

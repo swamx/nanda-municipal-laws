@@ -94,3 +94,80 @@ def test_call_dispatches_penalties_and_permits_with_query_param():
         ("penalties", (), {"query": "noise"}),
         ("permits", (), {"query": "keep certain animals"}),
     ]
+
+
+class _SearchWithResultsApiClient(_RecordingApiClient):
+    """Like _RecordingApiClient, but search/penalties/permits return a
+    results list with a top section_number, and get_section returns a
+    distinguishable full-text payload - lets tests assert the
+    needs_full_text follow-up actually happened.
+    """
+
+    def search(self, query, **filters):
+        self.calls.append(("search", (query,), filters))
+        return {"results": [{"section_number": "16-119", "snippet": "...ro[truncated]"}], "count": 1}
+
+    def penalties(self, **params):
+        self.calls.append(("penalties", (), params))
+        return {"results": [{"section_number": "16-119", "snippet": "...ro[truncated]"}], "count": 1}
+
+    def get_section(self, section_number):
+        self.calls.append(("get_section", (section_number,), {}))
+        return {"section_number": section_number, "text": "full untruncated statutory text"}
+
+
+def test_needs_full_text_true_chains_to_get_section_on_top_result():
+    # Pins the fix for the "penalty for garbage not disposed correctly, give
+    # me document snippet as well" case: a truncated /penalties snippet isn't
+    # enough when the user explicitly wants the exact text, so the agent
+    # should automatically look up the top result's full section text.
+    fake_client = _SearchWithResultsApiClient()
+    agent = Agent(api_client=fake_client)
+    decision = RoutingDecision(
+        endpoint="penalties", query_or_action="garbage disposal", needs_full_text=True, reasoning="x"
+    )
+
+    response = agent._call(decision)
+
+    assert ("get_section", ("16-119",), {}) in fake_client.calls
+    assert response["full_text_of_top_result"]["text"] == "full untruncated statutory text"
+
+
+def test_needs_full_text_false_does_not_chain_to_get_section():
+    fake_client = _SearchWithResultsApiClient()
+    agent = Agent(api_client=fake_client)
+    decision = RoutingDecision(
+        endpoint="penalties", query_or_action="garbage disposal", needs_full_text=False, reasoning="x"
+    )
+
+    response = agent._call(decision)
+
+    assert not any(call[0] == "get_section" for call in fake_client.calls)
+    assert "full_text_of_top_result" not in response
+
+
+def test_needs_full_text_true_with_no_results_does_not_error():
+    fake_client = _RecordingApiClient()  # returns {"ok": True}, no "results" key
+    agent = Agent(api_client=fake_client)
+    decision = RoutingDecision(endpoint="search", query_or_action="nonsense", needs_full_text=True, reasoning="x")
+
+    response = agent._call(decision)
+
+    assert response == {"ok": True}
+
+
+def test_needs_full_text_fails_open_when_get_section_errors():
+    class _BrokenGetSectionApiClient(_SearchWithResultsApiClient):
+        def get_section(self, section_number):
+            raise RuntimeError("network error")
+
+    fake_client = _BrokenGetSectionApiClient()
+    agent = Agent(api_client=fake_client)
+    decision = RoutingDecision(
+        endpoint="penalties", query_or_action="garbage disposal", needs_full_text=True, reasoning="x"
+    )
+
+    response = agent._call(decision)
+
+    assert "full_text_of_top_result" not in response
+    assert response["results"][0]["section_number"] == "16-119"
