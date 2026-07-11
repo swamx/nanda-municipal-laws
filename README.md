@@ -187,6 +187,7 @@ This file covers quick-start and a high-level summary. Everything else lives in 
 | [docs/COVERAGE.md](./docs/COVERAGE.md) | Exact ingested coverage (every title/chapter/subchapter/article), generated live from MongoDB |
 | [docs/PROVENANCE.md](./docs/PROVENANCE.md) | Signed-response verification: what's signed, the exact canonicalization recipe, a runnable Python verifier, and key-stability notes |
 | [docs/COMPOSABILITY.md](./docs/COMPOSABILITY.md) | Worked example of composing this skill downstream of another NANDA Town skill (e.g. enriching a civic complaint with the governing statute) |
+| [docs/DEMO_WORKFLOWS.md](./docs/DEMO_WORKFLOWS.md) | 5 agent workflows for a live demo, each as a Mermaid sequence diagram + verified curl, covering every agent-facing endpoint. Pair with [docs/demo.html](./docs/demo.html) — a self-contained page with real, clickable "Run" buttons against the live API |
 | [postman/README.md](./postman/README.md) | Postman collection for testing the deployed API — import instructions, Newman CLI usage, why the ingest/rate-limit folders are manual-only |
 | [local_agent/README.md](./local_agent/README.md) | Local-only chat-loop agent that simulates a real caller of this skill (routes questions via the `claude` CLI, calls the real API, composes the final answer) — architecture, how to run it, and its own test suite |
 | [mcp_server/README.md](./mcp_server/README.md) | Local-only MCP transport wrapping the same public API for MCP-native agent runtimes — install, run, connect, and its own test suite |

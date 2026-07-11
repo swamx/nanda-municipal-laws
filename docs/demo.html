@@ -1,0 +1,352 @@
+<!doctype html>
+<!--
+  Municipal Law Skill - interactive demo page (docs/demo.html)
+
+  WHY THIS FILE EXISTS: GitHub sanitizes rendered HTML and runs no JavaScript
+  when you view a file on github.com, so viewing this page there will NOT let
+  you click "Run" - the buttons simply won't do anything. To actually execute
+  the live API calls:
+
+    Option A (simplest): download this one file and double-click it to open
+    it in your browser directly (a file:// URL). No install, no build step.
+    Verified working this way in headless Chrome, real clicks against the
+    live API, while building this file - all 5 workflows return real 200s.
+
+    Option B (if your browser blocks fetch() from a file:// page): serve it
+    locally instead -
+        cd docs && python -m http.server 8000
+    then open http://localhost:8000/demo.html.
+
+    Option C: enable GitHub Pages for this repo and open the hosted URL - then
+    it behaves like any normal web page.
+
+  Every button below calls the REAL, live Municipal Law Skill API directly
+  from your browser (fetch(), no server-side proxy) - the responses you see
+  are real, not canned. See docs/DEMO_WORKFLOWS.md for the same 5 workflows
+  as Mermaid diagrams + copy-paste curl.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Municipal Law Skill - Live Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d12;
+    --panel: #12151c;
+    --border: #262b36;
+    --text: #e8eaed;
+    --muted: #9aa4b2;
+    --accent: #5b9dff;
+    --accent-2: #7ee0c3;
+    --mark-bg: #4a3b00;
+    --mark-text: #ffd76a;
+    --error: #ff6b6b;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --border: #dfe3e8;
+      --text: #1a1d23;
+      --muted: #5b6472;
+      --accent: #1f6fe5;
+      --accent-2: #12806a;
+      --mark-bg: #fff2b8;
+      --mark-text: #6b4c00;
+      --error: #c0392b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-top: 0; font-size: 0.95rem; }
+  .notice {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin: 16px 0 28px;
+  }
+  .config {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .config label { font-size: 0.85rem; color: var(--muted); }
+  .config input {
+    flex: 1;
+    min-width: 260px;
+    padding: 8px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.85rem;
+  }
+  .workflow {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+  }
+  .workflow h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .workflow .desc { color: var(--muted); font-size: 0.88rem; margin: 0 0 14px; }
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--panel) 92%, var(--text) 3%);
+  }
+  .step-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .step-label { font-size: 0.85rem; }
+  .step-label code {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  .step-status { font-size: 0.75rem; color: var(--muted); min-width: 70px; text-align: right; }
+  .step-result {
+    display: none;
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .step-result mark { background: var(--mark-bg); color: var(--mark-text); border-radius: 2px; }
+  .step-result.error { color: var(--error); }
+  .run-btn {
+    margin-top: 14px;
+    padding: 9px 18px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .run-btn:disabled { opacity: 0.5; cursor: default; }
+  .run-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .pill {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-2) 20%, transparent);
+    color: var(--accent-2);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  footer { color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Municipal Law Skill — Live Demo</h1>
+  <p class="subtitle">Every button below fires a real HTTP request to the live API from your browser. No canned responses.</p>
+
+  <div class="notice">
+    Viewing this on github.com? The buttons won't work there — GitHub disables JavaScript for
+    file previews. Download this file and open it locally (double-click), or see the header
+    comment in the file source for two other options. The same 5 workflows as static diagrams +
+    copy-paste curl live in <code>docs/DEMO_WORKFLOWS.md</code>.
+  </div>
+
+  <div class="config">
+    <label for="baseUrl">Base URL</label>
+    <input id="baseUrl" value="https://nanda-municipal-laws.vercel.app" spellcheck="false" />
+  </div>
+
+  <div id="workflows"></div>
+
+  <footer>
+    Rate-limited to 10 req/min per client on the live deployment — run one workflow at a time
+    rather than all five back to back. See <a href="./DEMO_WORKFLOWS.md">DEMO_WORKFLOWS.md</a> for
+    the diagram+curl reference and <a href="./PROVENANCE.md">PROVENANCE.md</a> for verifying a
+    signed response's Ed25519 signature.
+  </footer>
+</div>
+
+<script>
+const WORKFLOWS = [
+  {
+    title: "1. The headline capability — ask, then verify",
+    desc: '"Can I keep a rooster in my apartment?" — is_action_allowed, then verify via sections, related, and term_map.',
+    steps: [
+      { label: "POST /api/v1/is_action_allowed", method: "POST", path: "/api/v1/is_action_allowed",
+        body: { action: "keep a rooster in my apartment" } },
+      { label: "GET /api/v1/sections/161.19", method: "GET", path: "/api/v1/sections/161.19" },
+      { label: "GET /api/v1/sections/161.19/related", method: "GET", path: "/api/v1/sections/161.19/related" },
+      { label: "POST /api/v1/sections/161.19/term_map", method: "POST", path: "/api/v1/sections/161.19/term_map",
+        body: { query: "rooster" } },
+    ],
+  },
+  {
+    title: "2. General search, then drill into the source document",
+    desc: 'A non yes/no question uses /search instead of /is_action_allowed, then pulls the parent document.',
+    steps: [
+      { label: "POST /api/v1/search (Health Code)", method: "POST", path: "/api/v1/search",
+        body: { query: "keeping livestock poultry rabbits", document_type: "NYC Health Code" } },
+      { label: "GET /api/v1/sections/161.19", method: "GET", path: "/api/v1/sections/161.19" },
+      { label: "GET /api/v1/documents/{id} (Article 161)", method: "GET", path: "/api/v1/documents/6a4fd2c715b3681819635fd9" },
+      { label: "GET /api/v1/documents/{id}/chunks", method: "GET", path: "/api/v1/documents/6a4fd2c715b3681819635fd9/chunks" },
+    ],
+  },
+  {
+    title: "3. Penalty search — find the fine, then verify the wording",
+    desc: '"What is the civil penalty for a noise-code violation?" — /penalties, then the full text and a highlight.',
+    steps: [
+      { label: "POST /api/v1/penalties", method: "POST", path: "/api/v1/penalties",
+        body: { query: "civil penalty fine violation", topic: "NOISE CONTROL" } },
+      { label: "GET /api/v1/sections/24-267", method: "GET", path: "/api/v1/sections/24-267" },
+      { label: "POST /api/v1/sections/24-267/term_map", method: "POST", path: "/api/v1/sections/24-267/term_map",
+        body: { query: "penalty" } },
+    ],
+  },
+  {
+    title: "4. Permit search — does this need a permit, and which one?",
+    desc: '"Do I need a permit to keep certain animals?" — /permits, then the full text and a highlight.',
+    steps: [
+      { label: "POST /api/v1/permits", method: "POST", path: "/api/v1/permits",
+        body: { query: "keep certain animals" } },
+      { label: "GET /api/v1/sections/161.09", method: "GET", path: "/api/v1/sections/161.09" },
+      { label: "POST /api/v1/sections/161.09/term_map", method: "POST", path: "/api/v1/sections/161.09/term_map",
+        body: { query: "permit" } },
+    ],
+  },
+  {
+    title: "5. Full chain with cryptographic verification",
+    desc: 'Corpus freshness, a signed search response, the public key to verify it, full text, and a highlight.',
+    steps: [
+      { label: "GET /api/v1/version (corpus freshness)", method: "GET", path: "/api/v1/version" },
+      { label: "POST /api/v1/search (signed response)", method: "POST", path: "/api/v1/search",
+        body: { query: "after hours weekend limits construction work", document_type: "NYC Administrative Code" } },
+      { label: "GET /api/v1/pubkey", method: "GET", path: "/api/v1/pubkey" },
+      { label: "GET /api/v1/sections/24-222", method: "GET", path: "/api/v1/sections/24-222" },
+      { label: "POST /api/v1/sections/24-222/term_map", method: "POST", path: "/api/v1/sections/24-222/term_map",
+        body: { query: "construction hours" } },
+    ],
+  },
+];
+
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+// Renders JSON with <mark> tags (from term_map responses) preserved as real
+// highlighting, everything else HTML-escaped - safe because the only HTML
+// this API ever emits is exactly that one tag, in term_map snippet fields.
+function renderJsonWithMarks(obj) {
+  const json = JSON.stringify(obj, null, 2);
+  return escapeHtml(json)
+    .replace(/&lt;mark&gt;/g, "<mark>")
+    .replace(/&lt;\/mark&gt;/g, "</mark>");
+}
+
+function buildUI() {
+  const container = document.getElementById("workflows");
+  WORKFLOWS.forEach((wf, wfIndex) => {
+    const card = document.createElement("div");
+    card.className = "workflow";
+
+    const stepsHtml = wf.steps
+      .map((step, i) => `
+        <div class="step" id="wf-${wfIndex}-step-${i}">
+          <div class="step-head">
+            <span class="step-label"><code>${step.method}</code> ${escapeHtml(step.path)}</span>
+            <span class="step-status" id="wf-${wfIndex}-status-${i}">not run</span>
+          </div>
+          <div class="step-result" id="wf-${wfIndex}-result-${i}"></div>
+        </div>
+      `)
+      .join("");
+
+    card.innerHTML = `
+      <h2>${escapeHtml(wf.title)}</h2>
+      <p class="desc">${escapeHtml(wf.desc)}</p>
+      <div class="steps">${stepsHtml}</div>
+      <button class="run-btn" id="wf-${wfIndex}-run">Run this workflow<span class="pill">${wf.steps.length} calls</span></button>
+    `;
+    container.appendChild(card);
+
+    document.getElementById(`wf-${wfIndex}-run`).addEventListener("click", () => runWorkflow(wfIndex));
+  });
+}
+
+async function runWorkflow(wfIndex) {
+  const wf = WORKFLOWS[wfIndex];
+  const button = document.getElementById(`wf-${wfIndex}-run`);
+  const base = document.getElementById("baseUrl").value.replace(/\/$/, "");
+  button.disabled = true;
+
+  for (let i = 0; i < wf.steps.length; i++) {
+    const step = wf.steps[i];
+    const statusEl = document.getElementById(`wf-${wfIndex}-status-${i}`);
+    const resultEl = document.getElementById(`wf-${wfIndex}-result-${i}`);
+    statusEl.textContent = "running…";
+    resultEl.style.display = "none";
+    resultEl.classList.remove("error");
+
+    try {
+      const opts = { method: step.method, headers: {} };
+      if (step.body) {
+        opts.headers["Content-Type"] = "application/json";
+        opts.body = JSON.stringify(step.body);
+      }
+      const resp = await fetch(base + step.path, opts);
+      const data = await resp.json().catch(() => ({ detail: "(non-JSON response)" }));
+      statusEl.textContent = resp.status + (resp.ok ? " ok" : " !");
+      resultEl.innerHTML = renderJsonWithMarks(data);
+      resultEl.classList.toggle("error", !resp.ok);
+      resultEl.style.display = "block";
+    } catch (err) {
+      statusEl.textContent = "error";
+      resultEl.textContent = "Request failed: " + err.message +
+        "\n\nIf you opened this file directly (file://), your browser may be blocking " +
+        "cross-origin fetch from a local file. Try serving it instead: " +
+        "`cd docs && python -m http.server 8000`, then open http://localhost:8000/demo.html.";
+      resultEl.classList.add("error");
+      resultEl.style.display = "block";
+    }
+
+    // Small pacing delay between calls within one workflow - the live API
+    // rate-limits to 10 req/min/client, and this keeps a single workflow
+    // (3-5 calls) comfortably under that even if run twice in a row.
+    if (i < wf.steps.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+  }
+
+  button.disabled = false;
+}
+
+buildUI();
+</script>
+</body>
+</html>
