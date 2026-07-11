@@ -7,15 +7,19 @@
 - **`Municipal-Law-Skill.pptx`** — the deck, native PowerPoint, fully editable.
 - **`Municipal-Law-Skill.pdf`** — the same deck as a PDF (rendered from `deck.html`, not from the pptx — see below).
 - **`deck.html`** — a standalone, browser-viewable version of the same deck (open it directly, one slide per screen-height section).
-- **`content.py`** — the single source of truth: one Python list of slide specs. Both generators render from this, so the `.pptx` and the `.pdf`/`.html` can't drift out of sync with each other.
-- **`build_pptx.py`** / **`build_html.py`** — regenerate the `.pptx` / `deck.html` from `content.py`.
+- **`content.py`** — the single source of truth: one Python list of slide specs. Every generator renders from this, so the `.pptx`, the `.pdf`/`.html`, and the markdown review copy can't drift out of sync with each other.
+- **`DECK_CONTENT.md`** — the same content as plain, easy-to-review markdown, one section per slide, grouped (Hook & positioning / API reference / Stories / Engineering & trust / Close). **Edit this file to review or propose changes** — it's far easier to mark up than a `.pptx` — then port accepted edits back into `content.py` (the real source of truth) and regenerate everything else.
+- **`build_pptx.py`** / **`build_html.py`** / **`build_markdown.py`** — regenerate the `.pptx` / `deck.html` / `DECK_CONTENT.md` from `content.py`.
 - **`render_pdf.js`** — renders `deck.html` to `Municipal-Law-Skill.pdf` via headless Chrome (one 1280×720 slide per PDF page).
 
-## Regenerating after an edit
+## Reviewing and editing content
 
-Edit `content.py`, then:
+1. Read/mark up **`DECK_CONTENT.md`** — it's plain markdown, easiest to comment on or edit directly.
+2. Port whatever you change back into the matching slide entry in **`content.py`** (same order, same `"kind"` per slide - see the field names used in `build_markdown.py`'s `render_slide_body()` for exactly which keys each slide `kind` reads).
+3. Regenerate everything:
 
 ```bash
+python build_markdown.py # -> DECK_CONTENT.md (re-run after editing content.py, to keep the review copy in sync)
 python build_pptx.py     # -> Municipal-Law-Skill.pptx
 python build_html.py     # -> deck.html
 node render_pdf.js "<path to a Chrome/Chromium executable>"   # -> Municipal-Law-Skill.pdf
