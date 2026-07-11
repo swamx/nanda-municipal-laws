@@ -23,6 +23,7 @@ TEXT = RGBColor(0xE8, 0xEA, 0xED)
 MUTED = RGBColor(0x9A, 0xA4, 0xB2)
 ACCENT = RGBColor(0x5B, 0x9D, 0xFF)
 ACCENT_2 = RGBColor(0x7E, 0xE0, 0xC3)
+RED = RGBColor(0xFF, 0x6B, 0x6B)
 
 FONT = "Segoe UI"
 SLIDE_W = Inches(13.333)
@@ -143,12 +144,137 @@ def render_quote(slide, s, index, total):
     r = p.add_run()
     _set_run(r, "“" + s["quote"].strip("“”") + "”", 20, ACCENT_2, italic=True, bold=True)
 
-    box, tf2 = _textbox(slide, Inches(1), Inches(3.9), Inches(11.3), Inches(2.6))
+    box, tf2 = _textbox(slide, Inches(1), Inches(3.9), Inches(11.3), Inches(1.6))
     for i, b in enumerate(s["bullets"]):
         p = tf2.paragraphs[0] if i == 0 else tf2.add_paragraph()
         p.space_after = Pt(14)
         r = p.add_run()
         _set_run(r, "▸  " + b, 18, TEXT)
+
+    if s.get("emphasis"):
+        emp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Inches(5.3), Inches(11.3), Inches(0.9))
+        emp.fill.solid()
+        emp.fill.fore_color.rgb = ACCENT
+        emp.line.fill.background()
+        etf = emp.text_frame
+        etf.word_wrap = True
+        etf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        ep = etf.paragraphs[0]
+        ep.alignment = PP_ALIGN.CENTER
+        er = ep.add_run()
+        _set_run(er, s["emphasis"], 20, RGBColor(0x0B, 0x0D, 0x12), bold=True)
+
+    _footer(slide, index, total)
+
+
+def render_myth(slide, s, index, total):
+    _title_bar(slide, s["title"])
+
+    panel_w = Inches(5.15)
+    panel_h = Inches(2.0)
+    top = Inches(1.9)
+
+    wrong = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.7), top, panel_w, panel_h)
+    wrong.fill.solid()
+    wrong.fill.fore_color.rgb = PANEL
+    wrong.line.color.rgb = RED
+    wrong.line.width = Pt(1.5)
+    wtf = wrong.text_frame
+    wtf.word_wrap = True
+    wtf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    wp = wtf.paragraphs[0]
+    wp.alignment = PP_ALIGN.CENTER
+    wr = wp.add_run()
+    _set_run(wr, "✗", 26, RED, bold=True)
+    wp2 = wtf.add_paragraph()
+    wp2.alignment = PP_ALIGN.CENTER
+    wr2 = wp2.add_run()
+    _set_run(wr2, s["wrong_label"], 13, MUTED)
+    wp3 = wtf.add_paragraph()
+    wp3.alignment = PP_ALIGN.CENTER
+    wr3 = wp3.add_run()
+    _set_run(wr3, s["wrong_claim"], 20, RED, bold=True)
+
+    arrow, atf = _textbox(slide, Inches(5.95), top, Inches(0.6), panel_h, MSO_ANCHOR.MIDDLE)
+    ap = atf.paragraphs[0]
+    ap.alignment = PP_ALIGN.CENTER
+    ar = ap.add_run()
+    _set_run(ar, "→", 26, ACCENT, bold=True)
+
+    right = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(6.65), top, panel_w, panel_h)
+    right.fill.solid()
+    right.fill.fore_color.rgb = PANEL
+    right.line.color.rgb = ACCENT_2
+    right.line.width = Pt(1.5)
+    rtf = right.text_frame
+    rtf.word_wrap = True
+    rtf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    rp = rtf.paragraphs[0]
+    rp.alignment = PP_ALIGN.CENTER
+    rr = rp.add_run()
+    _set_run(rr, "✓", 26, ACCENT_2, bold=True)
+    rp2 = rtf.add_paragraph()
+    rp2.alignment = PP_ALIGN.CENTER
+    rr2 = rp2.add_run()
+    _set_run(rr2, s["right_label"], 13, MUTED)
+    rp3 = rtf.add_paragraph()
+    rp3.alignment = PP_ALIGN.CENTER
+    rr3 = rp3.add_run()
+    _set_run(rr3, s["right_claim"], 20, ACCENT_2, bold=True)
+    rp4 = rtf.add_paragraph()
+    rp4.alignment = PP_ALIGN.CENTER
+    rr4 = rp4.add_run()
+    _set_run(rr4, s["right_detail"], 12, MUTED)
+
+    box, tf = _textbox(slide, Inches(1), Inches(4.2), Inches(11.3), Inches(1.2))
+    p = tf.paragraphs[0]
+    r = p.add_run()
+    _set_run(r, s["footer_line"], 15, MUTED)
+    _footer(slide, index, total)
+
+
+def render_comparison(slide, s, index, total):
+    _title_bar(slide, s["title"])
+    col_w = Inches(5.4)
+    top = Inches(1.9)
+    gap = Inches(0.5)
+
+    left = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.9), top, col_w, Inches(3.6))
+    left.fill.solid()
+    left.fill.fore_color.rgb = PANEL
+    left.line.color.rgb = BORDER
+    ltf = left.text_frame
+    ltf.word_wrap = True
+    ltf.margin_left = Inches(0.3)
+    ltf.margin_top = Inches(0.25)
+    lp = ltf.paragraphs[0]
+    lp.alignment = PP_ALIGN.CENTER
+    lr = lp.add_run()
+    _set_run(lr, s["left_label"], 17, MUTED, bold=True)
+    for item in s["left_items"]:
+        lp2 = ltf.add_paragraph()
+        lp2.space_before = Pt(12)
+        lr2 = lp2.add_run()
+        _set_run(lr2, "✗  " + item, 16, TEXT)
+
+    right = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Emu(Inches(0.9) + col_w + gap), top, col_w, Inches(3.6))
+    right.fill.solid()
+    right.fill.fore_color.rgb = PANEL
+    right.line.color.rgb = ACCENT_2
+    rtf = right.text_frame
+    rtf.word_wrap = True
+    rtf.margin_left = Inches(0.3)
+    rtf.margin_top = Inches(0.25)
+    rp = rtf.paragraphs[0]
+    rp.alignment = PP_ALIGN.CENTER
+    rr = rp.add_run()
+    _set_run(rr, s["right_label"], 17, ACCENT_2, bold=True)
+    for item in s["right_items"]:
+        rp2 = rtf.add_paragraph()
+        rp2.space_before = Pt(12)
+        rr2 = rp2.add_run()
+        _set_run(rr2, "✓  " + item, 16, TEXT)
+
     _footer(slide, index, total)
 
 
@@ -230,18 +356,17 @@ def render_stats(slide, s, index, total):
     _footer(slide, index, total)
 
 
-def render_api_table(slide, s, index, total):
+def render_capability_table(slide, s, index, total):
     _title_bar(slide, s["title"], s.get("subtitle"))
     rows = s["rows"]
     top = Inches(2.0) if not s.get("subtitle") else Inches(2.2)
-    row_h = Inches(4.7 / (len(rows) + 1))
-    table_shape = slide.shapes.add_table(len(rows) + 1, 3, Inches(0.7), top, Inches(12.0), Inches(4.7))
+    table_shape = slide.shapes.add_table(len(rows) + 1, 3, Inches(0.7), top, Inches(12.0), Inches(3.8))
     table = table_shape.table
-    table.columns[0].width = Inches(1.0)
-    table.columns[1].width = Inches(3.0)
-    table.columns[2].width = Inches(8.0)
+    table.columns[0].width = Inches(2.6)
+    table.columns[1].width = Inches(2.6)
+    table.columns[2].width = Inches(6.8)
 
-    headers = ["Method", "Endpoint", "Use case"]
+    headers = ["Capability", "Endpoint", "Returns"]
     for c, h in enumerate(headers):
         cell = table.cell(0, c)
         cell.fill.solid()
@@ -253,8 +378,8 @@ def render_api_table(slide, s, index, total):
         r = p.add_run()
         _set_run(r, h, 14, RGBColor(0x0B, 0x0D, 0x12), bold=True)
 
-    for i, (method, endpoint, use_case) in enumerate(rows, start=1):
-        for c, val in enumerate([method, endpoint, use_case]):
+    for i, (capability, endpoint, returns) in enumerate(rows, start=1):
+        for c, val in enumerate([capability, endpoint, returns]):
             cell = table.cell(i, c)
             cell.fill.solid()
             cell.fill.fore_color.rgb = PANEL if i % 2 else BG
@@ -266,30 +391,57 @@ def render_api_table(slide, s, index, total):
             r = p.add_run()
             color = ACCENT_2 if c == 0 else (TEXT if c == 1 else MUTED)
             _set_run(r, val, 13 if c != 2 else 12.5, color, bold=(c in (0, 1)))
+
+    if s.get("admin_note"):
+        box, tf2 = _textbox(slide, Inches(0.7), Emu(top + Inches(3.9)), Inches(12.0), Inches(0.8))
+        p2 = tf2.paragraphs[0]
+        r2 = p2.add_run()
+        _set_run(r2, s["admin_note"], 13, MUTED, italic=True)
+
     _footer(slide, index, total)
 
 
 def render_story(slide, s, index, total):
     _title_bar(slide, s["title"])
-    box, tf = _textbox(slide, Inches(1), Inches(1.9), Inches(11.3), Inches(0.9))
+    box, tf = _textbox(slide, Inches(1), Inches(1.75), Inches(11.3), Inches(0.7))
     p = tf.paragraphs[0]
     r = p.add_run()
-    _set_run(r, s["question"], 24, ACCENT_2, italic=True, bold=True)
+    _set_run(r, s["question"], 22, ACCENT_2, italic=True, bold=True)
 
-    top = Inches(3.0)
+    n_steps = len(s["steps"])
+    step_h = Inches(0.85)
+    top = Inches(2.6)
     for i, step in enumerate(s["steps"]):
-        panel = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), top, Inches(11.3), Inches(1.05))
+        panel = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), top, Inches(11.3), step_h)
         panel.fill.solid()
         panel.fill.fore_color.rgb = PANEL
-        panel.line.color.rgb = ACCENT if i == len(s["steps"]) - 1 else BORDER
+        panel.line.color.rgb = ACCENT if i == n_steps - 1 else BORDER
         tf2 = panel.text_frame
         tf2.word_wrap = True
         tf2.vertical_anchor = MSO_ANCHOR.MIDDLE
         tf2.margin_left = Inches(0.25)
         p2 = tf2.paragraphs[0]
         r2 = p2.add_run()
-        _set_run(r2, f"{i + 1}.  {step}", 16, TEXT, bold=(i == len(s["steps"]) - 1))
-        top = Emu(top + Inches(1.2))
+        _set_run(r2, f"{i + 1}.  {step}", 15, TEXT, bold=(i == n_steps - 1))
+        top = Emu(top + step_h + Pt(6))
+
+    if s.get("citation"):
+        cit = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Emu(top + Inches(0.1)), Inches(11.3), Inches(1.0))
+        cit.fill.solid()
+        cit.fill.fore_color.rgb = PANEL
+        cit.line.color.rgb = ACCENT_2
+        cit.line.width = Pt(2)
+        ctf = cit.text_frame
+        ctf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        cp = ctf.paragraphs[0]
+        cp.alignment = PP_ALIGN.CENTER
+        cr = cp.add_run()
+        _set_run(cr, s["citation"]["label"], 12, MUTED)
+        cp2 = ctf.add_paragraph()
+        cp2.alignment = PP_ALIGN.CENTER
+        cr2 = cp2.add_run()
+        _set_run(cr2, s["citation"]["value"], 24, ACCENT_2, bold=True)
+
     _footer(slide, index, total)
 
 
@@ -324,9 +476,11 @@ RENDERERS = {
     "title": lambda slide, s, i, n: render_title(slide, s),
     "bullets": render_bullets,
     "quote": render_quote,
+    "myth": render_myth,
+    "comparison": render_comparison,
     "diagram": render_diagram,
     "stats": render_stats,
-    "api_table": render_api_table,
+    "capability_table": render_capability_table,
     "story": render_story,
     "closing": render_closing,
 }

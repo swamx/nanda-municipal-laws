@@ -15,11 +15,12 @@ OUT_PATH = Path(__file__).parent / "DECK_CONTENT.md"
 
 # (group title, slide indices in that group - 0-based into SLIDES)
 GROUPS = [
-    ("Hook & positioning", [0, 1, 2, 3, 4]),
-    ("API reference", [5, 6, 7, 8]),
-    ("Stories", [9, 10, 11]),
-    ("Engineering & trust", [12, 13]),
-    ("Close", [14, 15]),
+    ("Hook & positioning", [0, 1, 2]),
+    ("Stories", [3, 4, 5]),
+    ("Architecture & scale", [6, 7]),
+    ("Engineering & why not an LLM", [8, 9]),
+    ("API reference & trust", [10, 11]),
+    ("Close", [12, 13]),
 ]
 
 
@@ -44,6 +45,25 @@ def render_slide_body(s: dict) -> str:
         lines.append("")
         for b in s["bullets"]:
             lines.append(f"- {b}")
+        if s.get("emphasis"):
+            lines.append("")
+            lines.append(f"**{s['emphasis']}**")
+
+    elif kind == "myth":
+        lines.append(f"❌ **{s['wrong_label']}**: {s['wrong_claim']}")
+        lines.append("")
+        lines.append(f"✅ **{s['right_label']}**: {s['right_claim']} {s['right_detail']}")
+        lines.append("")
+        lines.append(f"*{s['footer_line']}*")
+
+    elif kind == "comparison":
+        lines.append(f"**{s['left_label']}**")
+        for item in s["left_items"]:
+            lines.append(f"- ✗ {item}")
+        lines.append("")
+        lines.append(f"**{s['right_label']}**")
+        for item in s["right_items"]:
+            lines.append(f"- ✓ {item}")
 
     elif kind == "diagram":
         lines.append(" → ".join(s["diagram"]))
@@ -57,20 +77,26 @@ def render_slide_body(s: dict) -> str:
         lines.append("")
         lines.append(f"*{s['footnote']}*")
 
-    elif kind == "api_table":
+    elif kind == "capability_table":
         if s.get("subtitle"):
             lines.append(f"*{s['subtitle']}*")
             lines.append("")
-        lines.append("| Method | Endpoint | Use case |")
+        lines.append("| Capability | Endpoint | Returns |")
         lines.append("|---|---|---|")
-        for method, endpoint, use_case in s["rows"]:
-            lines.append(f"| {method} | `{endpoint}` | {use_case} |")
+        for capability, endpoint, returns in s["rows"]:
+            lines.append(f"| {capability} | `{endpoint}` | {returns} |")
+        if s.get("admin_note"):
+            lines.append("")
+            lines.append(f"*{s['admin_note']}*")
 
     elif kind == "story":
         lines.append(f"**Question:** {s['question']}")
         lines.append("")
         for i, step in enumerate(s["steps"], start=1):
             lines.append(f"{i}. {step}")
+        if s.get("citation"):
+            lines.append("")
+            lines.append(f"**{s['citation']['label']}: {s['citation']['value']}**")
 
     elif kind == "closing":
         for b in s["bullets"]:

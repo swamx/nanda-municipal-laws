@@ -117,16 +117,63 @@ table.api tr:nth-child(even) td { background: var(--panel); }
 table.api td.method { color: var(--accent-2); font-weight: 700; white-space: nowrap; }
 table.api td.endpoint { color: var(--text); font-weight: 700; white-space: nowrap; font-family: monospace; }
 table.api td.usecase { color: var(--muted); }
+.admin-note { color: var(--muted); font-size: 14px; font-style: italic; margin-top: 22px; }
 .question { color: var(--accent-2); font-style: italic; font-weight: 700; font-size: 25px; margin-bottom: 30px; }
 .step-box {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 16px 20px;
-  font-size: 17px;
-  margin-bottom: 14px;
+  padding: 14px 20px;
+  font-size: 16px;
+  margin-bottom: 12px;
 }
 .step-box.last { border-color: var(--accent); font-weight: 700; }
+.citation-box {
+  margin-top: 20px;
+  background: var(--panel);
+  border: 2px solid var(--accent-2);
+  border-radius: 10px;
+  padding: 16px 24px;
+  text-align: center;
+}
+.citation-box .label { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+.citation-box .value { color: var(--accent-2); font-size: 30px; font-weight: 700; }
+.emphasis-box {
+  margin-top: 20px;
+  text-align: center;
+  color: var(--text);
+  background: var(--accent);
+  border-radius: 10px;
+  padding: 18px 24px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.myth-row { display: flex; gap: 30px; margin-top: 30px; align-items: stretch; }
+.myth-panel {
+  flex: 1;
+  border-radius: 10px;
+  padding: 26px;
+  text-align: center;
+}
+.myth-panel.wrong { background: rgba(255, 107, 107, 0.08); border: 1.5px solid #ff6b6b; }
+.myth-panel.right { background: rgba(126, 224, 195, 0.08); border: 1.5px solid var(--accent-2); }
+.myth-panel .mark { font-size: 30px; }
+.myth-panel .label { color: var(--muted); font-size: 14px; margin: 10px 0 6px; }
+.myth-panel .claim { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+.myth-panel.wrong .claim { color: #ff6b6b; }
+.myth-panel.right .claim { color: var(--accent-2); }
+.myth-panel .detail { color: var(--muted); font-size: 14px; }
+.myth-arrow { display: flex; align-items: center; color: var(--accent); font-size: 30px; font-weight: 700; }
+.myth-footer { margin-top: 26px; color: var(--muted); font-size: 15px; text-align: center; line-height: 1.6; }
+.comparison-row { display: flex; gap: 40px; margin-top: 40px; }
+.comparison-col { flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 26px; }
+.comparison-col.right { border-color: var(--accent-2); }
+.comparison-col h3 { margin: 0 0 18px; font-size: 19px; text-align: center; color: var(--muted); }
+.comparison-col.right h3 { color: var(--accent-2); }
+.comparison-col ul { list-style: none; margin: 0; padding: 0; font-size: 18px; }
+.comparison-col ul li { margin-bottom: 14px; padding-left: 30px; position: relative; }
+.comparison-col.left ul li::before { content: "✗"; position: absolute; left: 0; color: #ff6b6b; }
+.comparison-col.right ul li::before { content: "✓"; position: absolute; left: 0; color: var(--accent-2); }
 .closing { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; }
 .closing h1 { font-size: 36px; margin-bottom: 30px; }
 .closing .bullets { list-style: none; padding: 0; }
@@ -182,11 +229,56 @@ def render_slide(s, index, total):
 
     if kind == "quote":
         items = "".join(f"<li>{esc(b)}</li>" for b in s["bullets"])
+        emphasis = f'<div class="emphasis-box">{esc(s["emphasis"])}</div>' if s.get("emphasis") else ""
         return f"""
         <div class="slide">
           {render_title_bar(s['title'])}
           <div class="quote-panel">&ldquo;{esc(s['quote'].strip('“”'))}&rdquo;</div>
           <ul class="bullets">{items}</ul>
+          {emphasis}
+          {render_footer(index, total)}
+        </div>
+        """
+
+    if kind == "myth":
+        return f"""
+        <div class="slide">
+          {render_title_bar(s['title'])}
+          <div class="myth-row">
+            <div class="myth-panel wrong">
+              <div class="mark">&#10060;</div>
+              <div class="label">{esc(s['wrong_label'])}</div>
+              <div class="claim">{esc(s['wrong_claim'])}</div>
+            </div>
+            <div class="myth-arrow">&rarr;</div>
+            <div class="myth-panel right">
+              <div class="mark">&#9989;</div>
+              <div class="label">{esc(s['right_label'])}</div>
+              <div class="claim">{esc(s['right_claim'])}</div>
+              <div class="detail">{esc(s['right_detail'])}</div>
+            </div>
+          </div>
+          <div class="myth-footer">{esc(s['footer_line'])}</div>
+          {render_footer(index, total)}
+        </div>
+        """
+
+    if kind == "comparison":
+        left_items = "".join(f"<li>{esc(i)}</li>" for i in s["left_items"])
+        right_items = "".join(f"<li>{esc(i)}</li>" for i in s["right_items"])
+        return f"""
+        <div class="slide">
+          {render_title_bar(s['title'])}
+          <div class="comparison-row">
+            <div class="comparison-col left">
+              <h3>{esc(s['left_label'])}</h3>
+              <ul>{left_items}</ul>
+            </div>
+            <div class="comparison-col right">
+              <h3>{esc(s['right_label'])}</h3>
+              <ul>{right_items}</ul>
+            </div>
+          </div>
           {render_footer(index, total)}
         </div>
         """
@@ -225,18 +317,20 @@ def render_slide(s, index, total):
         </div>
         """
 
-    if kind == "api_table":
+    if kind == "capability_table":
         rows = "".join(
-            f'<tr><td class="method">{esc(m)}</td><td class="endpoint">{esc(e)}</td><td class="usecase">{esc(u)}</td></tr>'
-            for m, e, u in s["rows"]
+            f'<tr><td class="method">{esc(cap)}</td><td class="endpoint">{esc(ep)}</td><td class="usecase">{esc(ret)}</td></tr>'
+            for cap, ep, ret in s["rows"]
         )
+        admin_note = f'<div class="admin-note">{esc(s["admin_note"])}</div>' if s.get("admin_note") else ""
         return f"""
         <div class="slide">
           {render_title_bar(s['title'], s.get('subtitle'))}
           <table class="api">
-            <tr><th>Method</th><th>Endpoint</th><th>Use case</th></tr>
+            <tr><th>Capability</th><th>Endpoint</th><th>Returns</th></tr>
             {rows}
           </table>
+          {admin_note}
           {render_footer(index, total)}
         </div>
         """
@@ -246,11 +340,18 @@ def render_slide(s, index, total):
             f'<div class="step-box{" last" if i == len(s["steps"]) - 1 else ""}">{i + 1}.&nbsp; {esc(step)}</div>'
             for i, step in enumerate(s["steps"])
         )
+        citation = ""
+        if s.get("citation"):
+            citation = (
+                f'<div class="citation-box"><div class="label">{esc(s["citation"]["label"])}</div>'
+                f'<div class="value">{esc(s["citation"]["value"])}</div></div>'
+            )
         return f"""
         <div class="slide">
           {render_title_bar(s['title'])}
           <div class="question">{esc(s['question'])}</div>
           {steps}
+          {citation}
           {render_footer(index, total)}
         </div>
         """

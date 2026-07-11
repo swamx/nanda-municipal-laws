@@ -1,6 +1,6 @@
 # Pitch deck
 
-16-slide deck for the hackathon submission — the problem, the reframed capability pitch, architecture, corpus stats, the full API list (agent-facing endpoints kept separate from administration/operational ones), three story vignettes, engineering highlights, trust/verification, and a close. Content mirrors [DEMO_SCRIPT.md](../DEMO_SCRIPT.md)'s narrative and reuses the same verified facts as [DEMO_WORKFLOWS.md](../DEMO_WORKFLOWS.md).
+14-slide deck for the hackathon submission, ordered around the capability, not the REST surface: problem (with a visual myth-vs-real-statute panel) → three story vignettes (each with a large "returned citation" callout) → architecture → corpus scale → engineering bugs found-and-fixed → a "why not just ask an LLM?" comparison → agent-facing capabilities condensed to one table (with administration/operational endpoints kept separate, as a footnote, not a slide of their own) → trust/verification → why NANDA → close. Content mirrors [DEMO_SCRIPT.md](../DEMO_SCRIPT.md)'s narrative and reuses the same verified facts as [DEMO_WORKFLOWS.md](../DEMO_WORKFLOWS.md). Reordered and rebalanced per reviewer feedback that the original 16-slide cut spent too much time on API detail (4 slides) relative to the stories that actually sell the project.
 
 ## Files
 
@@ -8,7 +8,7 @@
 - **`Municipal-Law-Skill.pdf`** — the same deck as a PDF (rendered from `deck.html`, not from the pptx — see below).
 - **`deck.html`** — a standalone, browser-viewable version of the same deck (open it directly, one slide per screen-height section).
 - **`content.py`** — the single source of truth: one Python list of slide specs. Every generator renders from this, so the `.pptx`, the `.pdf`/`.html`, and the markdown review copy can't drift out of sync with each other.
-- **`DECK_CONTENT.md`** — the same content as plain, easy-to-review markdown, one section per slide, grouped (Hook & positioning / API reference / Stories / Engineering & trust / Close). **Edit this file to review or propose changes** — it's far easier to mark up than a `.pptx` — then port accepted edits back into `content.py` (the real source of truth) and regenerate everything else.
+- **`DECK_CONTENT.md`** — the same content as plain, easy-to-review markdown, one section per slide, grouped (Hook & positioning / Stories / Architecture & scale / Engineering & why not an LLM / API reference & trust / Close). **Edit this file to review or propose changes** — it's far easier to mark up than a `.pptx` — then port accepted edits back into `content.py` (the real source of truth) and regenerate everything else.
 - **`build_pptx.py`** / **`build_html.py`** / **`build_markdown.py`** — regenerate the `.pptx` / `deck.html` / `DECK_CONTENT.md` from `content.py`.
 - **`render_pdf.js`** — renders `deck.html` to `Municipal-Law-Skill.pdf` via headless Chrome (one 1280×720 slide per PDF page).
 
