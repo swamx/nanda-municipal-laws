@@ -7,85 +7,203 @@
 - **Required to complete your submission, not separately scored** — but explicitly needed if you land in the top 10, since organizers show it to people then. Don't skip it even though it's not part of the score.
 - **What actually gets scored** (Phase 2 = 80% of your total, Phase 1's core-protocol PR = 20%): *usefulness, creativity, setup ease, and whether "agents can use it from your SKILL.md alone."* That last point matters for filming — make it obvious an agent could act on SKILL.md with zero extra hand-holding.
 
-Target **~2.5 minutes** with the full search/term_map beat included; a tight 60-90s cut works if you're rushed (see "If you only have 60 seconds" at the bottom). Length itself isn't judged, but judges watching many submissions back-to-back will not sit through a bloated one.
+Target **~3 minutes**. Length itself isn't judged, but judges watching many submissions back-to-back will not sit through a bloated one — every second should be earning its place.
+
+## The one idea this script is built around
+
+**Don't frame this as "I built a legal search engine" or a product demo of REST endpoints — judges already know how to evaluate a REST API.** Frame it as a *capability*:
+
+> "I built a deterministic municipal law skill that any AI agent can invoke to obtain grounded, citation-backed legal evidence from the complete NYC Administrative and Health Codes."
+
+The whole video should answer one question — **"Why does an autonomous agent need this skill?"** — not "what did I implement." Everything below is structured around that.
 
 ## Setup before recording
 
 - **Screen recorder**: Windows: `Win+G` (Xbox Game Bar, built in) or OBS Studio if installed. Record at 1080p, hide notifications.
 - **Tabs/windows open in advance** (don't fumble live):
-  1. A browser tab on `https://nanda-municipal-laws.vercel.app/docs` (Swagger UI) — this is your main stage.
-  2. A terminal with `curl` ready (font size bumped up, 14-16pt) as a backup/companion to Swagger for the raw JSON.
-  3. A browser tab on `https://nanda-municipal-laws.vercel.app/` (raw JSON root info) — install a JSON-formatter extension so it's not a wall of text.
-  4. This repo's README open in the editor, scrolled to the top, for a 2-second establishing shot only — don't read it aloud.
+  1. A slide/title-card tool (even a plain dark-background text editor works) for the stats overlay, architecture slide, and end card.
+  2. A browser tab on `https://nanda-municipal-laws.vercel.app/docs` (Swagger UI) — brief use only, see 2:15–3:00 below.
+  3. A terminal with `curl` ready (font size bumped up, 14-16pt) as a companion to Swagger for the raw JSON, or `docs/demo.html` open locally for one-click real calls (see [DEMO_WORKFLOWS.md](./DEMO_WORKFLOWS.md)).
 - **Rehearse once** without recording so the live API calls (real network, real Mongo) don't introduce awkward dead air.
 
 ## The script
 
-### 0:00–0:12 — Hook: state the problem, not the product
+### 0:00–0:20 — Hook: the problem, not the product
 
-Say this over the README/title, ~5 seconds, then cut to the "6 hens" line in `docs/DATA_SOURCE.md` or just say it:
+Start on a plain title card or your face, not Swagger, not code:
 
-> "Autonomous agents keep answering legal questions from training-data folklore. Ask most LLMs about NYC chicken laws and they'll confidently tell you '6 hens max' — that's internet folklore. The real statute says no such thing. This skill exists so an agent never has to guess."
+> "Today's AI agents frequently hallucinate municipal laws or cite regulations that don't exist. I built a deterministic municipal law skill that gives any AI agent citation-backed access to the complete NYC Administrative and Health Codes — no LLM in the loop, so there's nothing for it to hallucinate."
 
-This is your single best hook — concrete, memorable, and it *is* the correctness story judges care about.
+Cut immediately to a stats overlay, ~3-4 seconds, real numbers only:
 
-### 0:12–0:20 — One-line positioning
+```text
+32 Titles (NYC Administrative Code)
+4,781 Sections
 
-Cut to the README title / tagline on screen:
+36 Articles (NYC Health Code)
+501 Sections
 
-> "It's a deterministic, citation-backed municipal law lookup for autonomous agents — built for Nandatown, NYC as the example jurisdiction. No LLM in the loop on this side — every answer is grounded in the real ingested code."
+No LLM · Deterministic · Citation-Backed
+```
 
-### 0:20–1:35 — One worked example, start to finish, exactly as an agent does it
+### 0:20–0:45 — One architecture slide, then move on
 
-Rather than a grab-bag of unrelated endpoint calls, walk through **one single question** the way `SKILL.md`'s own "How to use this service" section tells a calling agent to: ask → verdict → verify → cite. Stay on this one example the whole time — it reads far more like a real agent than five disconnected demos.
+One slide, on screen ~10-15 seconds while you say the line below — don't linger:
 
-**The question**: *"Can I keep a rooster in my apartment in Queens?"*
+```text
+Official NYC sources (nyc.gov, nycadmincode.readthedocs.io)
+        |
+     Crawler
+        |
+   Normalization
+        |
+    MongoDB
+        |
+    FastAPI
+        |
+    AI Agent
+```
 
-1. **`POST /api/v1/is_action_allowed`** with `{"action": "keep a rooster in my apartment"}` (Swagger `/docs`, **Try it out**, **Execute**, live). This is what SKILL.md tells an agent to call first for any yes/no legality question.
-   > "The agent's first move: ask the headline endpoint directly. Back comes `allowed: false`, a citation to §161.19, and a `reasoning` string — but a careful agent doesn't just repeat that verdict to the user. It verifies it."
-2. **`GET /api/v1/sections/161.19`** — take the `section_number` the previous response just cited and pull the **full, untruncated** text, `structural_summary`, and `cross_references`.
-   > "The `is_action_allowed` response only echoed a snippet. Before quoting a legal provision, the agent pulls the complete official text — so nothing it tells the user is quoted out of context."
-3. **`POST /api/v1/sections/161.19/term_map`** with `{"query": "rooster"}` — the highlight service. Show the response: the literal occurrence of "rooster," `<mark>`-wrapped, with character offsets.
-   > "And to make its citation *auditable* — not just asserted — it can point at exactly where in that full text the word 'rooster' appears. This is the same evidence a human reviewer could check by hand: a real URL, a real section number, a highlighted span of real text."
-4. **`GET /api/v1/sections/161.19/related`** — the section's own cross-reference (§161.01), resolved to its own citation.
-   > "It even follows the statute's own internal cross-reference, one hop, so the agent's final answer isn't missing context the law itself points to."
-5. Cut to a title card or just say the **composed final answer** the agent would now return, in the `{answer, sources, reasoning}` shape from `SKILL.md`:
-   > "answer: No — §161.19 of the NYC Health Code prohibits keeping a live rooster in the city outside specific exceptions. sources: section 161.19, this URL. reasoning: derived from the cited text, verified against the full section and the highlighted match."
+> "The service never generates legal advice. It only returns official text and citations — the calling agent does the reasoning."
 
-That's the whole loop: **one question, one verdict, one verification chain, one composed answer** — nothing in it was asserted without a traceable, highlighted source.
+Don't explain MongoDB, FastAPI, or any implementation detail here — that line about never generating legal advice is the only sentence in this beat that matters to a judge.
 
-*(Optional 10s coda if you have time: re-run step 1 with `{"action": "Keep backyard chickens"}` to show `allowed: true`, `confidence: "medium"`, with the same rooster prohibition still surfacing in `conditions` — proving the tool distinguishes an explicit rule from an absence-of-restriction inference, not just a blunt yes/no.)*
+### 0:45–2:15 — Three stories, not an endpoint tour
 
-### 1:35–2:00 — Prove the scale and the guardrails
+This is the biggest structural change from a typical demo: **don't say "here are my endpoints."** Walk through three different people asking three different real questions, each following the same shape — ask → retrieve → cite → agent answers — so judges see *why* the skill exists, not just *what* it returns. Every citation below is real, copied from the live deployment, not staged.
 
-Switch to the Swagger UI (`/docs`) or the root `/` JSON. Point at:
-- Corpus stats: 668 documents, 10,702 chunks, the **entire** NYC Administrative Code + Health Code, not a curated sample.
-- The full endpoint list (search, sections, related, term_map, penalties, permits) — more than a single yes/no toy.
+#### Story 1 — A resident: "Can I keep backyard chickens?"
 
-> "It's the entire corpus — 32 titles of the Admin Code, all 36 articles of the Health Code — not a cherry-picked demo slice."
+```text
+Resident asks
+    |
+Agent calls POST /is_action_allowed
+    |
+allowed: true (confidence: medium) — citing §161.19
+    |
+Agent answers: "Yes, but roosters are prohibited citywide"
+```
 
-### 2:00–2:25 — What makes this different, fast
+> "A resident wants a straight answer. The agent calls the headline endpoint, gets back an explicit citation to §161.19 of the Health Code, and composes a grounded answer — chickens are fine, roosters aren't, and here's the exact text that says so."
 
-Hit these three in rapid succession (15-20s combined, don't over-explain):
+*(This is the one story worth showing on screen with the real API call live — `POST /api/v1/is_action_allowed {"action": "Keep backyard chickens"}` — since it's your single most memorable, most-tested example. Keep the other two as narrated diagrams to hold pace.)*
 
-1. **Signed provenance** — hit `GET /api/v1/pubkey`, then show a `/search` response's `provenance` field: "Every answer is Ed25519-signed, so another agent can verify offline that this service produced it — not a relay, not a cache."
-2. **Corpus freshness** — `GET /api/v1/version`: "Law goes stale — this tells a caller exactly how stale."
-3. **MCP-native** — mention (screen or just say): "It's also exposed as MCP tools, so Claude Desktop or Claude Code can call it directly, not just raw HTTP."
+#### Story 2 — A food vendor: "What permit do I need to operate a mobile food cart?"
 
-### 2:25–2:40 — Close
+```text
+Food vendor asks
+    |
+Agent calls POST /permits {"query": "mobile food vending unit license permit"}
+    |
+Top result: §89.11 "Applications for permits and licenses" (Mobile Food Vending)
+    |
+Agent answers: "You need a vending permit/license under §89.11 — fees are set by §17-308"
+```
 
-Cut back to the README or a title card:
+> "A food vendor asks a completely different kind of question — not yes/no, but 'what do I need.' Same skill, different endpoint: `/permits` surfaces §89.11, the real mobile-food-vending permit section, with the actual fee cross-reference."
 
-> "Deterministic. Citation-backed. Fully tested — 135 passing tests. Live now at nanda-municipal-laws.vercel.app. That's the Municipal Law Skill."
+#### Story 3 — A building owner: "What's the penalty if I dump construction debris illegally?"
+
+```text
+Building owner asks
+    |
+Agent calls POST /penalties {"topic": "dumping"} -> GET /sections/16-119
+    |
+§16-119 "Dumping prohibited" — misdemeanor, $1,500-$10,000 civil penalty,
+vehicle impoundment, repeat offenses up to $20,000
+    |
+Agent answers: real dollar figures, straight from the statute
+```
+
+> "A third question, a third real citation — this time with actual enforcement numbers, not a vague 'consult a lawyer.' Same three-step shape every time: ask, retrieve, cite."
+
+Close this beat with the one sentence that ties it to the hackathon's own goal:
+
+> "This skill lets any autonomous agent in NANDA Town answer municipal-law questions using authoritative legal sources — instead of relying on an LLM's memory."
+
+### 2:15–2:45 — Swagger, briefly
+
+Cut to `/docs`. This section is short on purpose — **30-45 seconds, one call, done**:
+
+1. Expand **Legal Determination**, click `is_action_allowed`, **Try it out** (already pre-filled with a real example), **Execute**.
+2. Let the real response land on screen for 2-3 seconds. Don't scroll through every field.
+
+> "Here it is live — Try it out, Execute, and that's the same call from Story 1, running for real right now."
+
+Don't spend more time here. Judges already know how to read Swagger; you're just proving it's real, not a mockup.
+
+### 2:45–3:10 — The engineering story, shown, not told
+
+This is where the project is genuinely stronger than most submissions — but *"I wrote 5,000 lines"* means nothing to a judge. Show three concrete bugs-found-and-fixed as quick visual beats (a few seconds each, title-card style):
+
+```text
+Bug: naive substring search
+    |
+"fine" matched inside "defined"
+    |
+False positive
+    |
+Fixed: word-boundary matching everywhere
+```
+
+```text
+36 Health Code PDFs
+    |
+Each formatted slightly differently
+    |
+Parser normalized all of them
+    |
+Verified section-by-section against real text
+```
+
+```text
+Popular internet myth: "NYC caps chickens at 6 hens"
+    |
+Real statute text: no such limit exists
+    |
+Regression test locks this in
+    |
+Never fabricated, ever
+```
+
+> "Real bugs, caught by testing against the actual government PDFs and the actual live corpus — not assumed, verified."
+
+### 3:10–3:20 — Close
+
+End on one slide:
+
+```text
+Agent-ready. Deterministic. Citation-backed.
+
+4,781 NYC Administrative Code sections
+501 NYC Health Code sections
+
+No hallucinations — grounded by citations, every time.
+
+Live now: nanda-municipal-laws.vercel.app
+```
+
+> "Deterministic. Citation-backed. Fully tested. Live now. That's the Municipal Law Skill."
 
 ## If you only have 60 seconds
 
-Keep the one-example flow but trim it to three steps: hook (0:00-0:12) → `is_action_allowed` on the rooster question (0:12-0:30) → `term_map` on §161.19 as the single most visual proof of "verifiable, not asserted" (0:30-0:50) → close line (0:50-1:00). Drop `/sections`, `/related`, the backyard-chickens coda, and the scale/differentiators beats entirely at this length.
+Hook (0:00-0:15, stats overlay included) → Story 1 only, live on screen (`is_action_allowed` → the rooster/chickens verdict, 0:15-0:40) → the NANDA-relevance sentence (0:40-0:50) → close line (0:50-1:00). Drop the architecture slide, Stories 2 and 3, Swagger, and the engineering-bugs beat entirely at this length.
+
+## What NOT to show
+
+However tempting, don't spend any time on:
+
+- Package/folder structure or repository layout
+- Docker, CI pipelines, or deployment config
+- Environment variables or MongoDB collection internals
+- Scrolling through source code
+
+These matter to developers reviewing a PR, not to a judge with 3-5 minutes deciding whether this is a reusable agent capability. Every second spent on them is a second not spent on capability, correctness, and agent usability — which is what's actually being scored.
 
 ## Filming tips specific to this repo
 
-- **Don't** scroll through source code — a demo video proves the product works, not that you can read a file tree.
-- **Do** let at least one API call hit the *live* Vercel deployment on camera (not localhost) — "realism" is a named judging criterion, and a live network call is more convincing than a canned screenshot.
+- **Do** let at least one API call hit the *live* Vercel deployment on camera (not localhost) — "realism" is a named judging criterion, and a live network call is more convincing than a canned screenshot. Story 1's `is_action_allowed` call is the one to make live.
 - If the live call is slow/flaky on the day, have a pre-recorded clip of the same call as backup, but prefer live.
-- Keep captions/on-screen text terse if you add them: "No LLM. Real law. Signed answers." reads faster than a paragraph while judges skim.
+- Keep captions/on-screen text terse if you add them: "No LLM. Real law. Grounded by citations." reads faster than a paragraph while judges skim.
 - Swagger UI's response panel can be dense — zoom in (browser `Ctrl` `+`, or Windows Magnifier) on just `allowed`, `citations`, and `reasoning` so those three fields are legible on a recorded screen, rather than showing the whole raw payload at normal size.
+- For the three-story beat (0:45–2:15), narrated diagrams at a brisk pace read as more confident than reading endpoint names off a slide — practice the three "ask → retrieve → cite → answer" lines out loud until they're fast and natural.
