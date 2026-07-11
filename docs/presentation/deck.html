@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Municipal Law Skill - Pitch Deck</title>
+<style>
+:root {
+  --bg: #0b0d12;
+  --panel: #12151c;
+  --border: #262b36;
+  --text: #e8eaed;
+  --muted: #9aa4b2;
+  --accent: #5b9dff;
+  --accent-2: #7ee0c3;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #000; }
+body { font-family: "Segoe UI", -apple-system, Arial, sans-serif; }
+.slide {
+  width: 1280px;
+  height: 720px;
+  background: var(--bg);
+  color: var(--text);
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  padding: 48px 56px;
+}
+.slide:last-child { page-break-after: auto; }
+.slide h1 {
+  font-size: 34px;
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+.slide .subtitle { color: var(--muted); font-size: 14px; font-style: italic; margin-bottom: 8px; }
+.underline { width: 90px; height: 4px; background: var(--accent); border-radius: 2px; margin-bottom: 28px; }
+.footer {
+  position: absolute;
+  bottom: 28px;
+  left: 56px;
+  right: 56px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+}
+.bullets { list-style: none; margin: 0; padding: 0; font-size: 21px; line-height: 1.7; }
+.bullets li { margin-bottom: 16px; padding-left: 28px; position: relative; }
+.bullets li::before { content: "▸"; position: absolute; left: 0; color: var(--accent); }
+.quote-panel {
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  padding: 28px 32px;
+  font-size: 21px;
+  font-style: italic;
+  font-weight: 700;
+  color: var(--accent-2);
+  margin-bottom: 28px;
+}
+.title-slide { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; }
+.title-slide h1 { font-size: 52px; margin-bottom: 4px; }
+.title-slide .sub { color: var(--accent); font-weight: 700; font-size: 28px; margin-bottom: 22px; }
+.title-slide .tagline { color: var(--muted); font-style: italic; font-size: 17px; max-width: 900px; margin-bottom: 60px; }
+.title-slide .footer-line { color: var(--muted); font-size: 14px; }
+.title-slide .url { color: var(--accent-2); font-weight: 700; font-size: 15px; margin-top: 6px; }
+.diagram-row { display: flex; align-items: center; margin-top: 40px; }
+.diagram-box {
+  background: var(--panel);
+  border: 1.25px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 13px;
+  flex: 1;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.diagram-box.endpoint { border-color: var(--accent); font-weight: 700; }
+.diagram-arrow { color: var(--accent); font-size: 26px; font-weight: 700; padding: 0 10px; }
+.callout { text-align: center; color: var(--accent-2); font-style: italic; font-weight: 700; font-size: 20px; margin-top: 50px; }
+.stats-row { display: flex; gap: 24px; margin-top: 30px; }
+.stat-panel {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+}
+.stat-panel .group-label { color: var(--muted); font-weight: 700; font-size: 17px; margin-bottom: 14px; }
+.stat-num { color: var(--accent); font-size: 40px; font-weight: 700; }
+.stat-label { font-size: 15px; margin-bottom: 12px; }
+.footnote { text-align: center; color: var(--accent-2); font-style: italic; font-size: 17px; margin-top: 30px; }
+table.api { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 15px; }
+table.api th {
+  background: var(--accent);
+  color: #0b0d12;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+table.api td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.api tr:nth-child(even) td { background: var(--panel); }
+table.api td.method { color: var(--accent-2); font-weight: 700; white-space: nowrap; }
+table.api td.endpoint { color: var(--text); font-weight: 700; white-space: nowrap; font-family: monospace; }
+table.api td.usecase { color: var(--muted); }
+.question { color: var(--accent-2); font-style: italic; font-weight: 700; font-size: 25px; margin-bottom: 30px; }
+.step-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  font-size: 17px;
+  margin-bottom: 14px;
+}
+.step-box.last { border-color: var(--accent); font-weight: 700; }
+.closing { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; }
+.closing h1 { font-size: 36px; margin-bottom: 30px; }
+.closing .bullets { list-style: none; padding: 0; }
+.closing .bullets li { color: var(--accent-2); font-size: 19px; margin-bottom: 10px; text-align: center; padding-left: 0; }
+.closing .bullets li::before { content: ""; }
+.closing .url { color: var(--accent); font-weight: 700; font-size: 22px; margin-top: 30px; }
+.closing .repo { color: var(--muted); font-size: 15px; margin-top: 6px; }
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .slide { page-break-after: always; }
+}
+</style>
+</head>
+<body>
+
+        <div class="slide title-slide">
+          <h1>Municipal Law Skill</h1>
+          <div class="sub">for Autonomous Agents</div>
+          <div class="tagline">Deterministic, citation-backed municipal law retrieval — no LLM in the loop</div>
+          <div class="footer-line">NANDA Town · MIT Reality Hackathon 2026</div>
+          <div class="url">https://nanda-municipal-laws.vercel.app</div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>AI agents hallucinate municipal law</h1><div class="underline"></div>
+          <ul class="bullets"><li>Popular internet myth: “NYC caps backyard chickens at 6 hens”</li><li>The real statute (§161.19) states no such number — it only prohibits roosters, ducks, geese, and turkeys, with narrow exceptions</li><li>Agents relying on an LLM's training data repeat exactly this kind of confident, wrong answer</li><li>Legal citations need to come from the actual code — not a model's memory</li></ul>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>2/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>The capability</h1><div class="underline"></div>
+          <div class="quote-panel">&ldquo;A deterministic municipal law skill that any AI agent can invoke to obtain grounded, citation-backed legal evidence from the complete NYC Administrative and Health Codes.&rdquo;</div>
+          <ul class="bullets"><li>No LLM calls, ever — nothing for the service itself to hallucinate</li><li>Same query → same citations → same ordering, every time</li><li>The calling agent performs the reasoning; this service only supplies evidence</li></ul>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>3/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Architecture</h1><div class="underline"></div>
+          <div class="diagram-row"><div class="diagram-box endpoint">Official NYC sources (nyc.gov, nycadmincode.readthedocs.io)</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Crawler</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Normalization</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">MongoDB</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">FastAPI</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box endpoint">AI Agent</div></div>
+          <div class="callout">The service never generates legal advice — only official text and citations.</div>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>4/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>The complete corpus, not a sample</h1><div class="underline"></div>
+          <div class="stats-row"><div class="stat-panel"><div class="group-label">NYC Administrative Code</div><div class="stat-num">32</div><div class="stat-label">Titles</div><div class="stat-num">4,781</div><div class="stat-label">Sections</div></div><div class="stat-panel"><div class="group-label">NYC Health Code</div><div class="stat-num">36</div><div class="stat-label">Articles</div><div class="stat-num">501</div><div class="stat-label">Sections</div></div></div>
+          <div class="footnote">668 source documents · 10,702 searchable chunks total</div>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>5/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Agent-facing APIs — Legal Determination &amp; Search</h1><div class="underline"></div>
+          <table class="api">
+            <tr><th>Method</th><th>Endpoint</th><th>Use case</th></tr>
+            <tr><td class="method">POST</td><td class="endpoint">/is_action_allowed</td><td class="usecase">Headline capability — yes/no legality check on a described action. Returns allowed, conditions, citations, reasoning, confidence.</td></tr><tr><td class="method">POST</td><td class="endpoint">/search</td><td class="usecase">General keyword lookup across the entire corpus — filterable by title, chapter, document_type, agency, or topic.</td></tr><tr><td class="method">POST</td><td class="endpoint">/sections/{id}/term_map</td><td class="usecase">Highlight exactly where search terms occur within a section — built for search-results/demo UI rendering.</td></tr>
+          </table>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>6/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Agent-facing APIs — Lookup &amp; Cross References</h1><div class="underline"></div>
+          <table class="api">
+            <tr><th>Method</th><th>Endpoint</th><th>Use case</th></tr>
+            <tr><td class="method">GET</td><td class="endpoint">/sections/{id}</td><td class="usecase">Exact section retrieval by number — full untruncated text plus a deterministic structural summary.</td></tr><tr><td class="method">GET</td><td class="endpoint">/sections/{id}/related</td><td class="usecase">Resolve a section's own cross-references into their citations — a one-hop citation graph.</td></tr><tr><td class="method">GET</td><td class="endpoint">/documents/{id}</td><td class="usecase">Metadata for a source document (an Admin Code chapter or Health Code article).</td></tr><tr><td class="method">GET</td><td class="endpoint">/documents/{id}/chunks</td><td class="usecase">Every section belonging to one document, in order.</td></tr>
+          </table>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>7/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Agent-facing APIs — Penalties &amp; Permits</h1><div class="underline"></div>
+          <table class="api">
+            <tr><th>Method</th><th>Endpoint</th><th>Use case</th></tr>
+            <tr><td class="method">POST</td><td class="endpoint">/penalties</td><td class="usecase">Find sections flagged as mentioning a penalty or fine — for enforcement-related questions.</td></tr><tr><td class="method">POST</td><td class="endpoint">/permits</td><td class="usecase">Find sections flagged as requiring a permit or license.</td></tr>
+          </table>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>8/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Administration &amp; operational endpoints</h1><div class="subtitle">Kept separate from the agent-facing retrieval surface above — not part of the reasoning loop</div><div class="underline"></div>
+          <table class="api">
+            <tr><th>Method</th><th>Endpoint</th><th>Use case</th></tr>
+            <tr><td class="method">GET</td><td class="endpoint">/health</td><td class="usecase">Liveness check — reports MongoDB reachability.</td></tr><tr><td class="method">GET</td><td class="endpoint">/version</td><td class="usecase">Deployed app version, plus corpus freshness: last-ingested date and age in days.</td></tr><tr><td class="method">GET</td><td class="endpoint">/pubkey</td><td class="usecase">Ed25519 public key for verifying a signed response's provenance offline.</td></tr><tr><td class="method">POST</td><td class="endpoint">/ingest</td><td class="usecase">Fetch, parse, and persist new source documents. Operational only, API-key gated — not for agent use.</td></tr>
+          </table>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>9/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Story 1 — A resident</h1><div class="underline"></div>
+          <div class="question">“Can I keep backyard chickens?”</div>
+          <div class="step-box">1.&nbsp; Agent calls POST /is_action_allowed</div><div class="step-box">2.&nbsp; allowed: true (confidence: medium) — citing §161.19</div><div class="step-box last">3.&nbsp; Agent answers: “Yes, but roosters are prohibited citywide”</div>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>10/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Story 2 — A food vendor</h1><div class="underline"></div>
+          <div class="question">“What permit do I need to operate a mobile food cart?”</div>
+          <div class="step-box">1.&nbsp; Agent calls POST /permits {"query": "mobile food vending unit license permit"}</div><div class="step-box">2.&nbsp; Top result: §89.11 “Applications for permits and licenses” (Mobile Food Vending)</div><div class="step-box last">3.&nbsp; Agent answers: “You need a vending permit/license under §89.11 — fees are set by §17-308”</div>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>11/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Story 3 — A building owner</h1><div class="underline"></div>
+          <div class="question">“What's the penalty if I dump construction debris illegally?”</div>
+          <div class="step-box">1.&nbsp; Agent calls POST /penalties → GET /sections/16-119</div><div class="step-box">2.&nbsp; §16-119 “Dumping prohibited” — misdemeanor, $1,500–$10,000 civil penalty, vehicle impoundment</div><div class="step-box last">3.&nbsp; Agent answers with real dollar figures, straight from the statute</div>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>12/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Engineering: bugs found and fixed, not just claimed</h1><div class="underline"></div>
+          <ul class="bullets"><li>Naive substring search: “fine” matched inside “defined” — fixed with word-boundary matching everywhere</li><li>36 Health Code PDFs, each formatted slightly differently — parser normalized and verified section-by-section against real text</li><li>The “6 hens” myth — a regression test locks in the true statute text, forever</li></ul>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>13/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Trust &amp; verification</h1><div class="underline"></div>
+          <ul class="bullets"><li>Every /is_action_allowed and /search response is Ed25519-signed</li><li>/pubkey lets any downstream agent verify offline that this service — not a relay or a cache — produced a citation</li><li>/version reports corpus freshness — law goes stale, and callers can know exactly how stale</li><li>Same query → same citations → same ordering — no randomness, ever</li></ul>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>14/16</span></div>
+        </div>
+        
+
+        <div class="slide">
+          <h1>Why NANDA</h1><div class="underline"></div>
+          <div class="quote-panel">&ldquo;This skill lets any autonomous agent in NANDA Town answer municipal-law questions using authoritative legal sources — instead of relying on an LLM's memory.&rdquo;</div>
+          <ul class="bullets"><li>Composable by design — the last hop in a chain started by another skill (a 311 complaint, a permit application, a code-enforcement lead)</li><li>Any agent that can call an HTTP endpoint can invoke it, per SKILL.md</li></ul>
+          <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>15/16</span></div>
+        </div>
+        
+
+        <div class="slide closing">
+          <h1>Agent-ready. Deterministic. Citation-backed.</h1>
+          <ul class="bullets"><li>4,781 NYC Administrative Code sections</li><li>501 NYC Health Code sections</li><li>No hallucinations — grounded by citations, every time</li></ul>
+          <div class="url">https://nanda-municipal-laws.vercel.app</div>
+          <div class="repo">https://github.com/swamx/nanda-municipal-laws</div>
+        </div>
+        
+</body>
+</html>
