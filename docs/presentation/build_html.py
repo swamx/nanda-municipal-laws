@@ -174,6 +174,30 @@ table.api td.usecase { color: var(--muted); }
 .comparison-col ul li { margin-bottom: 14px; padding-left: 30px; position: relative; }
 .comparison-col.left ul li::before { content: "✗"; position: absolute; left: 0; color: #ff6b6b; }
 .comparison-col.right ul li::before { content: "✓"; position: absolute; left: 0; color: var(--accent-2); }
+.mini-flow-wrap { margin-top: 14px; }
+.mini-flow-label { color: var(--muted); font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.mini-flow-row { display: flex; align-items: center; }
+.mini-flow-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: center;
+  font-size: 12px;
+  flex: 1;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mini-flow-row.highlight .mini-flow-box { border-color: var(--accent-2); font-weight: 700; color: var(--accent-2); }
+.mini-flow-arrow { color: var(--muted); font-size: 16px; padding: 0 6px; }
+.mini-flow-row.highlight .mini-flow-arrow { color: var(--accent); }
+.diagram-lead { text-align: center; color: var(--text); font-weight: 700; font-size: 22px; margin-bottom: 18px; }
+.diagram-lead b { color: var(--accent-2); }
+.stats-callout { text-align: center; color: var(--text); font-weight: 700; font-size: 19px; margin-top: 18px; }
+.admin-note.small { font-size: 12px; opacity: 0.75; }
+.answer-line { text-align: center; color: var(--text); font-size: 17px; margin-top: 22px; font-style: italic; }
 .closing { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; }
 .closing h1 { font-size: 36px; margin-bottom: 30px; }
 .closing .bullets { list-style: none; padding: 0; }
@@ -228,12 +252,28 @@ def render_slide(s, index, total):
         """
 
     if kind == "quote":
-        items = "".join(f"<li>{esc(b)}</li>" for b in s["bullets"])
+        items = "".join(f"<li>{esc(b)}</li>" for b in s.get("bullets", []))
         emphasis = f'<div class="emphasis-box">{esc(s["emphasis"])}</div>' if s.get("emphasis") else ""
+        flows_html = ""
+        if s.get("flows"):
+            rows = []
+            for flow in s["flows"]:
+                row_cls = "mini-flow-row" if flow.get("muted") else "mini-flow-row highlight"
+                boxes = []
+                for i, step in enumerate(flow["steps"]):
+                    boxes.append(f'<div class="mini-flow-box">{esc(step)}</div>')
+                    if i < len(flow["steps"]) - 1:
+                        boxes.append('<div class="mini-flow-arrow">&rarr;</div>')
+                rows.append(
+                    f'<div class="mini-flow-wrap"><div class="mini-flow-label">{esc(flow["label"])}</div>'
+                    f'<div class="{row_cls}">{"".join(boxes)}</div></div>'
+                )
+            flows_html = "".join(rows)
         return f"""
         <div class="slide">
           {render_title_bar(s['title'])}
           <div class="quote-panel">&ldquo;{esc(s['quote'].strip('“”'))}&rdquo;</div>
+          {flows_html}
           <ul class="bullets">{items}</ul>
           {emphasis}
           {render_footer(index, total)}
@@ -291,9 +331,11 @@ def render_slide(s, index, total):
             boxes.append(f'<div class="{cls}">{esc(step)}</div>')
             if i < len(steps) - 1:
                 boxes.append('<div class="diagram-arrow">&rarr;</div>')
+        lead = f'<div class="diagram-lead">{esc(s["lead"])}</div>' if s.get("lead") else ""
         return f"""
         <div class="slide">
           {render_title_bar(s['title'])}
+          {lead}
           <div class="diagram-row">{''.join(boxes)}</div>
           <div class="callout">{esc(s['callout'])}</div>
           {render_footer(index, total)}
@@ -308,11 +350,13 @@ def render_slide(s, index, total):
                 for num, label in g["stats"]
             )
             groups.append(f'<div class="stat-panel"><div class="group-label">{esc(g["label"])}</div>{stat_html}</div>')
+        callout = f'<div class="stats-callout">{esc(s["callout"])}</div>' if s.get("callout") else ""
         return f"""
         <div class="slide">
           {render_title_bar(s['title'])}
           <div class="stats-row">{''.join(groups)}</div>
           <div class="footnote">{esc(s['footnote'])}</div>
+          {callout}
           {render_footer(index, total)}
         </div>
         """
@@ -322,7 +366,7 @@ def render_slide(s, index, total):
             f'<tr><td class="method">{esc(cap)}</td><td class="endpoint">{esc(ep)}</td><td class="usecase">{esc(ret)}</td></tr>'
             for cap, ep, ret in s["rows"]
         )
-        admin_note = f'<div class="admin-note">{esc(s["admin_note"])}</div>' if s.get("admin_note") else ""
+        admin_note = f'<div class="admin-note small">{esc(s["admin_note"])}</div>' if s.get("admin_note") else ""
         return f"""
         <div class="slide">
           {render_title_bar(s['title'], s.get('subtitle'))}
@@ -336,22 +380,21 @@ def render_slide(s, index, total):
         """
 
     if kind == "story":
-        steps = "".join(
-            f'<div class="step-box{" last" if i == len(s["steps"]) - 1 else ""}">{i + 1}.&nbsp; {esc(step)}</div>'
-            for i, step in enumerate(s["steps"])
-        )
-        citation = ""
-        if s.get("citation"):
-            citation = (
-                f'<div class="citation-box"><div class="label">{esc(s["citation"]["label"])}</div>'
-                f'<div class="value">{esc(s["citation"]["value"])}</div></div>'
-            )
+        flow = s["flow"]
+        citation_index = s.get("citation_index")
+        boxes = []
+        for i, step in enumerate(flow):
+            cls = "diagram-box endpoint" if i == citation_index else "diagram-box"
+            boxes.append(f'<div class="{cls}">{esc(step)}</div>')
+            if i < len(flow) - 1:
+                boxes.append('<div class="diagram-arrow">&rarr;</div>')
+        answer = f'<div class="answer-line">{esc(s["answer"])}</div>' if s.get("answer") else ""
         return f"""
         <div class="slide">
           {render_title_bar(s['title'])}
           <div class="question">{esc(s['question'])}</div>
-          {steps}
-          {citation}
+          <div class="diagram-row">{''.join(boxes)}</div>
+          {answer}
           {render_footer(index, total)}
         </div>
         """

@@ -6,11 +6,24 @@ Every fact/number here is real, verified against the live deployment or the
 repo's own generated docs (docs/COVERAGE.md) while building this deck - see
 docs/DEMO_WORKFLOWS.md and docs/DEMO_SCRIPT.md for the underlying verification.
 
-Ordering follows reviewer feedback: problem -> stories (what sells the
-project) -> architecture -> corpus scale -> engineering -> why-not-an-LLM ->
-APIs (condensed to one slide) -> trust -> why NANDA -> close. The API detail
-that used to span 4 slides is intentionally now a single slide - judges
-evaluate an agent skill, not a REST API surface.
+Ordering follows two rounds of reviewer feedback: problem -> stories (what
+sells the project) -> architecture -> corpus scale -> engineering ->
+why-not-an-LLM -> APIs (condensed to one slide) -> trust -> why NANDA ->
+close. The API detail that used to span 4 slides is intentionally now a
+single slide - judges evaluate an agent skill, not a REST API surface.
+
+Round 2 changes: replaced "No hallucinations" (imprecise - an LLM *agent*
+calling this skill could still hallucinate; only this service's own output
+is guaranteed generation-free) with "Deterministic, citation-backed legal
+evidence"; added a Traditional-RAG-vs-this-skill flow comparison to slide 3;
+converted the three story slides from numbered steps to a single flow
+diagram per story (ending in a highlighted citation node, then the actual
+composed answer below); added a "not a curated demo dataset" callout to the
+stats slide; reworded the engineering slide's title and the LLM-comparison's
+left column to read as an explanation rather than a criticism; added a bold
+lead line to the trust slide naming Ed25519 explicitly; added a closing
+"any agent / any language / any framework / just HTTP" line to the NANDA
+slide.
 """
 
 LIVE_URL = "https://nanda-municipal-laws.vercel.app"
@@ -39,47 +52,35 @@ SLIDES = [
         "kind": "quote",
         "title": "The capability",
         "quote": "A deterministic municipal law skill that any AI agent can invoke to obtain grounded, citation-backed legal evidence from the complete NYC Administrative and Health Codes.",
-        "emphasis": "The service never generates answers. It only returns legal evidence.",
-        "bullets": [
-            "No LLM calls, ever — nothing for the service itself to hallucinate",
-            "Same query → same citations → same ordering, every time",
+        "flows": [
+            {"label": "Traditional RAG", "steps": ["Question", "LLM", "Answer"], "muted": True},
+            {"label": "Municipal Law Skill", "steps": ["Question", "Skill", "Official Evidence", "Agent", "Grounded Answer"], "muted": False},
         ],
+        "emphasis": "The service never generates answers. It only returns legal evidence.",
     },
     {
         "kind": "story",
         "title": "Story 1 — A resident",
         "question": "“Can I keep backyard chickens?”",
-        "steps": [
-            "User asks the agent a plain-language question",
-            "Agent calls POST /is_action_allowed",
-            "Evidence returned: allowed:true (confidence: medium)",
-            "Agent answers: “Yes, but roosters are prohibited citywide”",
-        ],
-        "citation": {"label": "Returned citation", "value": "NYC Health Code §161.19"},
+        "flow": ["Resident", "Agent", "POST /is_action_allowed", "NYC Health Code §161.19"],
+        "citation_index": 3,
+        "answer": "“Yes, but roosters are prohibited citywide”",
     },
     {
         "kind": "story",
         "title": "Story 2 — A food vendor",
         "question": "“What permit do I need to operate a mobile food cart?”",
-        "steps": [
-            "User asks the agent a plain-language question",
-            "Agent calls POST /permits {\"query\": \"mobile food vending unit license permit\"}",
-            "Evidence returned: §89.11 “Applications for permits and licenses”",
-            "Agent answers: “You need a vending permit/license under §89.11 — fees are set by §17-308”",
-        ],
-        "citation": {"label": "Returned citation", "value": "NYC Health Code §89.11"},
+        "flow": ["Food vendor", "Agent", "POST /permits", "§89.11 Applications for permits and licenses"],
+        "citation_index": 3,
+        "answer": "“You need a vending permit/license under §89.11 — fees are set by §17-308”",
     },
     {
         "kind": "story",
         "title": "Story 3 — A building owner",
         "question": "“What's the penalty if I dump construction debris illegally?”",
-        "steps": [
-            "User asks the agent a plain-language question",
-            "Agent calls POST /penalties → GET /sections/16-119",
-            "Evidence returned: §16-119 “Dumping prohibited” — misdemeanor, vehicle impoundment",
-            "Agent answers with real dollar figures, straight from the statute",
-        ],
-        "citation": {"label": "Returned directly from statute", "value": "$1,500 – $10,000 civil penalty"},
+        "flow": ["Building owner", "Agent", "POST /penalties → GET /sections/16-119", "$1,500 – $10,000 civil penalty"],
+        "citation_index": 3,
+        "answer": "Real dollar figures, straight from the statute — not a vague “consult a lawyer.”",
     },
     {
         "kind": "diagram",
@@ -103,10 +104,11 @@ SLIDES = [
             {"label": "Entire NYC Health Code", "stats": [("36", "Articles"), ("501", "Sections")]},
         ],
         "footnote": "668 source documents · 10,702 searchable chunks · ≈55 MB total",
+        "callout": "Not a curated demo dataset.",
     },
     {
         "kind": "bullets",
-        "title": "Engineering: bugs found and fixed, not just claimed",
+        "title": "Production issues discovered using live municipal data",
         "bullets": [
             "Naive substring search: “fine” matched inside “defined” — fixed with word-boundary matching everywhere",
             "36 Health Code PDFs, each formatted slightly differently — parser normalized and verified section-by-section against real text",
@@ -118,7 +120,7 @@ SLIDES = [
         "kind": "comparison",
         "title": "Why not just ask an LLM?",
         "left_label": "LLM memory",
-        "left_items": ["May hallucinate", "May be outdated", "No provenance"],
+        "left_items": ["May be incomplete", "May be outdated", "Cannot prove provenance"],
         "right_label": "Municipal Law Skill",
         "right_items": ["Official source", "Deterministic", "Citations", "Verifiable"],
     },
@@ -137,8 +139,9 @@ SLIDES = [
     {
         "kind": "diagram",
         "title": "Trust & verification",
+        "lead": "Every response is cryptographically signed (Ed25519).",
         "diagram": ["Signed", "Verifiable", "Deterministic", "Replayable"],
-        "callout": "Every /is_action_allowed and /search response is Ed25519-signed — /pubkey lets any downstream agent verify offline that this service, not a relay or a cache, produced a citation. /version reports corpus freshness, so callers know exactly how stale the law is.",
+        "callout": "/pubkey lets any downstream agent verify offline that this service, not a relay or a cache, produced a citation. /version reports corpus freshness, so callers know exactly how stale the law is.",
     },
     {
         "kind": "quote",
@@ -148,14 +151,15 @@ SLIDES = [
             "Composable by design — the last hop in a chain started by another skill (a 311 complaint, a permit application, a code-enforcement lead)",
             "Any agent that can call an HTTP endpoint can invoke it, per SKILL.md",
         ],
+        "emphasis": "Any agent. Any language. Any framework. Just HTTP.",
     },
     {
         "kind": "closing",
         "title": "Agent-ready. Deterministic. Citation-backed.",
         "bullets": [
-            "Complete NYC corpus",
-            "No hallucinations",
-            "Live today",
+            "✓ Complete NYC Administrative & Health Codes",
+            "✓ Deterministic, citation-backed legal evidence",
+            "✓ Live, agent-ready HTTP skill",
         ],
         "url": LIVE_URL,
         "repo": REPO_URL,

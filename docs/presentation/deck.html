@@ -164,6 +164,30 @@ table.api td.usecase { color: var(--muted); }
 .comparison-col ul li { margin-bottom: 14px; padding-left: 30px; position: relative; }
 .comparison-col.left ul li::before { content: "✗"; position: absolute; left: 0; color: #ff6b6b; }
 .comparison-col.right ul li::before { content: "✓"; position: absolute; left: 0; color: var(--accent-2); }
+.mini-flow-wrap { margin-top: 14px; }
+.mini-flow-label { color: var(--muted); font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.mini-flow-row { display: flex; align-items: center; }
+.mini-flow-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: center;
+  font-size: 12px;
+  flex: 1;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mini-flow-row.highlight .mini-flow-box { border-color: var(--accent-2); font-weight: 700; color: var(--accent-2); }
+.mini-flow-arrow { color: var(--muted); font-size: 16px; padding: 0 6px; }
+.mini-flow-row.highlight .mini-flow-arrow { color: var(--accent); }
+.diagram-lead { text-align: center; color: var(--text); font-weight: 700; font-size: 22px; margin-bottom: 18px; }
+.diagram-lead b { color: var(--accent-2); }
+.stats-callout { text-align: center; color: var(--text); font-weight: 700; font-size: 19px; margin-top: 18px; }
+.admin-note.small { font-size: 12px; opacity: 0.75; }
+.answer-line { text-align: center; color: var(--text); font-size: 17px; margin-top: 22px; font-style: italic; }
 .closing { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; }
 .closing h1 { font-size: 36px; margin-bottom: 30px; }
 .closing .bullets { list-style: none; padding: 0; }
@@ -212,7 +236,8 @@ table.api td.usecase { color: var(--muted); }
         <div class="slide">
           <h1>The capability</h1><div class="underline"></div>
           <div class="quote-panel">&ldquo;A deterministic municipal law skill that any AI agent can invoke to obtain grounded, citation-backed legal evidence from the complete NYC Administrative and Health Codes.&rdquo;</div>
-          <ul class="bullets"><li>No LLM calls, ever — nothing for the service itself to hallucinate</li><li>Same query → same citations → same ordering, every time</li></ul>
+          <div class="mini-flow-wrap"><div class="mini-flow-label">Traditional RAG</div><div class="mini-flow-row"><div class="mini-flow-box">Question</div><div class="mini-flow-arrow">&rarr;</div><div class="mini-flow-box">LLM</div><div class="mini-flow-arrow">&rarr;</div><div class="mini-flow-box">Answer</div></div></div><div class="mini-flow-wrap"><div class="mini-flow-label">Municipal Law Skill</div><div class="mini-flow-row highlight"><div class="mini-flow-box">Question</div><div class="mini-flow-arrow">&rarr;</div><div class="mini-flow-box">Skill</div><div class="mini-flow-arrow">&rarr;</div><div class="mini-flow-box">Official Evidence</div><div class="mini-flow-arrow">&rarr;</div><div class="mini-flow-box">Agent</div><div class="mini-flow-arrow">&rarr;</div><div class="mini-flow-box">Grounded Answer</div></div></div>
+          <ul class="bullets"></ul>
           <div class="emphasis-box">The service never generates answers. It only returns legal evidence.</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>3/14</span></div>
         </div>
@@ -221,8 +246,8 @@ table.api td.usecase { color: var(--muted); }
         <div class="slide">
           <h1>Story 1 — A resident</h1><div class="underline"></div>
           <div class="question">“Can I keep backyard chickens?”</div>
-          <div class="step-box">1.&nbsp; User asks the agent a plain-language question</div><div class="step-box">2.&nbsp; Agent calls POST /is_action_allowed</div><div class="step-box">3.&nbsp; Evidence returned: allowed:true (confidence: medium)</div><div class="step-box last">4.&nbsp; Agent answers: “Yes, but roosters are prohibited citywide”</div>
-          <div class="citation-box"><div class="label">Returned citation</div><div class="value">NYC Health Code §161.19</div></div>
+          <div class="diagram-row"><div class="diagram-box">Resident</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Agent</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">POST /is_action_allowed</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box endpoint">NYC Health Code §161.19</div></div>
+          <div class="answer-line">“Yes, but roosters are prohibited citywide”</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>4/14</span></div>
         </div>
         
@@ -230,8 +255,8 @@ table.api td.usecase { color: var(--muted); }
         <div class="slide">
           <h1>Story 2 — A food vendor</h1><div class="underline"></div>
           <div class="question">“What permit do I need to operate a mobile food cart?”</div>
-          <div class="step-box">1.&nbsp; User asks the agent a plain-language question</div><div class="step-box">2.&nbsp; Agent calls POST /permits {"query": "mobile food vending unit license permit"}</div><div class="step-box">3.&nbsp; Evidence returned: §89.11 “Applications for permits and licenses”</div><div class="step-box last">4.&nbsp; Agent answers: “You need a vending permit/license under §89.11 — fees are set by §17-308”</div>
-          <div class="citation-box"><div class="label">Returned citation</div><div class="value">NYC Health Code §89.11</div></div>
+          <div class="diagram-row"><div class="diagram-box">Food vendor</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Agent</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">POST /permits</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box endpoint">§89.11 Applications for permits and licenses</div></div>
+          <div class="answer-line">“You need a vending permit/license under §89.11 — fees are set by §17-308”</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>5/14</span></div>
         </div>
         
@@ -239,14 +264,15 @@ table.api td.usecase { color: var(--muted); }
         <div class="slide">
           <h1>Story 3 — A building owner</h1><div class="underline"></div>
           <div class="question">“What's the penalty if I dump construction debris illegally?”</div>
-          <div class="step-box">1.&nbsp; User asks the agent a plain-language question</div><div class="step-box">2.&nbsp; Agent calls POST /penalties → GET /sections/16-119</div><div class="step-box">3.&nbsp; Evidence returned: §16-119 “Dumping prohibited” — misdemeanor, vehicle impoundment</div><div class="step-box last">4.&nbsp; Agent answers with real dollar figures, straight from the statute</div>
-          <div class="citation-box"><div class="label">Returned directly from statute</div><div class="value">$1,500 – $10,000 civil penalty</div></div>
+          <div class="diagram-row"><div class="diagram-box">Building owner</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Agent</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">POST /penalties → GET /sections/16-119</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box endpoint">$1,500 – $10,000 civil penalty</div></div>
+          <div class="answer-line">Real dollar figures, straight from the statute — not a vague “consult a lawyer.”</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>6/14</span></div>
         </div>
         
 
         <div class="slide">
           <h1>Architecture</h1><div class="underline"></div>
+          
           <div class="diagram-row"><div class="diagram-box endpoint">Official NYC sources</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Crawler</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Normalization</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">MongoDB</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">FastAPI Skill</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Autonomous Agent</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box endpoint">Grounded Answer</div></div>
           <div class="callout">The service never generates legal advice — only official text and citations. The last step is why it exists.</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>7/14</span></div>
@@ -257,12 +283,13 @@ table.api td.usecase { color: var(--muted); }
           <h1>The complete corpus, not a sample</h1><div class="underline"></div>
           <div class="stats-row"><div class="stat-panel"><div class="group-label">Entire NYC Administrative Code</div><div class="stat-num">32</div><div class="stat-label">Titles</div><div class="stat-num">4,781</div><div class="stat-label">Sections</div></div><div class="stat-panel"><div class="group-label">Entire NYC Health Code</div><div class="stat-num">36</div><div class="stat-label">Articles</div><div class="stat-num">501</div><div class="stat-label">Sections</div></div></div>
           <div class="footnote">668 source documents · 10,702 searchable chunks · ≈55 MB total</div>
+          <div class="stats-callout">Not a curated demo dataset.</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>8/14</span></div>
         </div>
         
 
         <div class="slide">
-          <h1>Engineering: bugs found and fixed, not just claimed</h1><div class="underline"></div>
+          <h1>Production issues discovered using live municipal data</h1><div class="underline"></div>
           <ul class="bullets"><li>Naive substring search: “fine” matched inside “defined” — fixed with word-boundary matching everywhere</li><li>36 Health Code PDFs, each formatted slightly differently — parser normalized and verified section-by-section against real text</li><li>The “6 hens” myth — a regression test locks in the true statute text, forever</li><li>Hidden ingestion size limit silently truncated requests — found and fixed before it silently dropped data</li></ul>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>9/14</span></div>
         </div>
@@ -273,7 +300,7 @@ table.api td.usecase { color: var(--muted); }
           <div class="comparison-row">
             <div class="comparison-col left">
               <h3>LLM memory</h3>
-              <ul><li>May hallucinate</li><li>May be outdated</li><li>No provenance</li></ul>
+              <ul><li>May be incomplete</li><li>May be outdated</li><li>Cannot prove provenance</li></ul>
             </div>
             <div class="comparison-col right">
               <h3>Municipal Law Skill</h3>
@@ -290,15 +317,16 @@ table.api td.usecase { color: var(--muted); }
             <tr><th>Capability</th><th>Endpoint</th><th>Returns</th></tr>
             <tr><td class="method">Determine legality</td><td class="endpoint">/is_action_allowed</td><td class="usecase">Allowed, conditions, citations, confidence</td></tr><tr><td class="method">Search law</td><td class="endpoint">/search</td><td class="usecase">Ranked legal evidence, filterable by source</td></tr><tr><td class="method">Retrieve statute</td><td class="endpoint">/sections/{id}</td><td class="usecase">Official, untruncated text</td></tr><tr><td class="method">Find penalties</td><td class="endpoint">/penalties</td><td class="usecase">Enforcement provisions</td></tr><tr><td class="method">Find permits</td><td class="endpoint">/permits</td><td class="usecase">Permit/license requirements</td></tr>
           </table>
-          <div class="admin-note">Also available, kept separate from the agent-facing surface above: /health, /version, /pubkey, /ingest — operational only, not part of the reasoning loop.</div>
+          <div class="admin-note small">Also available, kept separate from the agent-facing surface above: /health, /version, /pubkey, /ingest — operational only, not part of the reasoning loop.</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>11/14</span></div>
         </div>
         
 
         <div class="slide">
           <h1>Trust &amp; verification</h1><div class="underline"></div>
+          <div class="diagram-lead">Every response is cryptographically signed (Ed25519).</div>
           <div class="diagram-row"><div class="diagram-box endpoint">Signed</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Verifiable</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box">Deterministic</div><div class="diagram-arrow">&rarr;</div><div class="diagram-box endpoint">Replayable</div></div>
-          <div class="callout">Every /is_action_allowed and /search response is Ed25519-signed — /pubkey lets any downstream agent verify offline that this service, not a relay or a cache, produced a citation. /version reports corpus freshness, so callers know exactly how stale the law is.</div>
+          <div class="callout">/pubkey lets any downstream agent verify offline that this service, not a relay or a cache, produced a citation. /version reports corpus freshness, so callers know exactly how stale the law is.</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>12/14</span></div>
         </div>
         
@@ -306,15 +334,16 @@ table.api td.usecase { color: var(--muted); }
         <div class="slide">
           <h1>Why NANDA</h1><div class="underline"></div>
           <div class="quote-panel">&ldquo;This transforms municipal law from static documents into a reusable capability that any NANDA agent can invoke.&rdquo;</div>
-          <ul class="bullets"><li>Composable by design — the last hop in a chain started by another skill (a 311 complaint, a permit application, a code-enforcement lead)</li><li>Any agent that can call an HTTP endpoint can invoke it, per SKILL.md</li></ul>
           
+          <ul class="bullets"><li>Composable by design — the last hop in a chain started by another skill (a 311 complaint, a permit application, a code-enforcement lead)</li><li>Any agent that can call an HTTP endpoint can invoke it, per SKILL.md</li></ul>
+          <div class="emphasis-box">Any agent. Any language. Any framework. Just HTTP.</div>
           <div class="footer"><span>Municipal Law Skill for Autonomous Agents</span><span>13/14</span></div>
         </div>
         
 
         <div class="slide closing">
           <h1>Agent-ready. Deterministic. Citation-backed.</h1>
-          <ul class="bullets"><li>Complete NYC corpus</li><li>No hallucinations</li><li>Live today</li></ul>
+          <ul class="bullets"><li>✓ Complete NYC Administrative &amp; Health Codes</li><li>✓ Deterministic, citation-backed legal evidence</li><li>✓ Live, agent-ready HTTP skill</li></ul>
           <div class="url">https://nanda-municipal-laws.vercel.app</div>
           <div class="repo">https://github.com/swamx/nanda-municipal-laws</div>
         </div>

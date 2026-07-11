@@ -17,6 +17,8 @@ Target **~3 minutes**. Length itself isn't judged, but judges watching many subm
 
 The whole video should answer one question — **"Why does an autonomous agent need this skill?"** — not "what did I implement." Everything below is structured around that.
 
+**Slides vs. live demo**: if you're pairing this script with the `docs/presentation/` deck for a live judged session (not just this recorded video), lean roughly **30% slides / 70% live demo**. The deck sets up the problem and closes the pitch; everything in between should be the actual API responding in real time. The single moment worth protecting above all others is Story 1: "Can I keep chickens?" → `POST /is_action_allowed` → `NYC Health Code §161.19` → a grounded answer. That's the "wow" — don't let slide time crowd it out.
+
 ## Setup before recording
 
 - **Screen recorder**: Windows: `Win+G` (Xbox Game Bar, built in) or OBS Studio if installed. Record at 1080p, hide notifications.
@@ -65,8 +67,10 @@ Official NYC sources (nyc.gov, nycadmincode.readthedocs.io)
 ```
 
 > "The service never generates legal advice. It only returns official text and citations — the calling agent does the reasoning."
+>
+> "This isn't a chatbot. It's infrastructure. Any autonomous agent can use it to ground its reasoning in authoritative municipal law."
 
-Don't explain MongoDB, FastAPI, or any implementation detail here — that line about never generating legal advice is the only sentence in this beat that matters to a judge.
+Don't explain MongoDB, FastAPI, or any implementation detail here — those two lines are the only sentences in this beat that matter to a judge.
 
 ### 0:45–2:15 — Three stories, not an endpoint tour
 
@@ -178,7 +182,7 @@ Agent-ready. Deterministic. Citation-backed.
 4,781 NYC Administrative Code sections
 501 NYC Health Code sections
 
-No hallucinations — grounded by citations, every time.
+Deterministic, citation-backed legal evidence — never generated text.
 
 Live now: nanda-municipal-laws.vercel.app
 ```

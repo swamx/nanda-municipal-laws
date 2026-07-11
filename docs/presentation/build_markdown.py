@@ -43,7 +43,11 @@ def render_slide_body(s: dict) -> str:
     elif kind == "quote":
         lines.append(f"> {s['quote']}")
         lines.append("")
-        for b in s["bullets"]:
+        if s.get("flows"):
+            for flow in s["flows"]:
+                lines.append(f"- **{flow['label']}**: {' → '.join(flow['steps'])}")
+            lines.append("")
+        for b in s.get("bullets", []):
             lines.append(f"- {b}")
         if s.get("emphasis"):
             lines.append("")
@@ -66,6 +70,9 @@ def render_slide_body(s: dict) -> str:
             lines.append(f"- ✓ {item}")
 
     elif kind == "diagram":
+        if s.get("lead"):
+            lines.append(f"**{s['lead']}**")
+            lines.append("")
         lines.append(" → ".join(s["diagram"]))
         lines.append("")
         lines.append(f"*{s['callout']}*")
@@ -76,6 +83,9 @@ def render_slide_body(s: dict) -> str:
             lines.append(f"- **{g['label']}**: {stat_str}")
         lines.append("")
         lines.append(f"*{s['footnote']}*")
+        if s.get("callout"):
+            lines.append("")
+            lines.append(f"**{s['callout']}**")
 
     elif kind == "capability_table":
         if s.get("subtitle"):
@@ -92,11 +102,15 @@ def render_slide_body(s: dict) -> str:
     elif kind == "story":
         lines.append(f"**Question:** {s['question']}")
         lines.append("")
-        for i, step in enumerate(s["steps"], start=1):
-            lines.append(f"{i}. {step}")
-        if s.get("citation"):
+        citation_index = s.get("citation_index")
+        flow_str = " → ".join(
+            f"**{step}**" if i == citation_index else step
+            for i, step in enumerate(s["flow"])
+        )
+        lines.append(flow_str)
+        if s.get("answer"):
             lines.append("")
-            lines.append(f"**{s['citation']['label']}: {s['citation']['value']}**")
+            lines.append(f"*{s['answer']}*")
 
     elif kind == "closing":
         for b in s["bullets"]:

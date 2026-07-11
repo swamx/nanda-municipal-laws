@@ -31,8 +31,9 @@ https://nanda-municipal-laws.vercel.app
 
 > A deterministic municipal law skill that any AI agent can invoke to obtain grounded, citation-backed legal evidence from the complete NYC Administrative and Health Codes.
 
-- No LLM calls, ever — nothing for the service itself to hallucinate
-- Same query → same citations → same ordering, every time
+- **Traditional RAG**: Question → LLM → Answer
+- **Municipal Law Skill**: Question → Skill → Official Evidence → Agent → Grounded Answer
+
 
 **The service never generates answers. It only returns legal evidence.**
 
@@ -46,12 +47,9 @@ https://nanda-municipal-laws.vercel.app
 
 **Question:** “Can I keep backyard chickens?”
 
-1. User asks the agent a plain-language question
-2. Agent calls POST /is_action_allowed
-3. Evidence returned: allowed:true (confidence: medium)
-4. Agent answers: “Yes, but roosters are prohibited citywide”
+Resident → Agent → POST /is_action_allowed → **NYC Health Code §161.19**
 
-**Returned citation: NYC Health Code §161.19**
+*“Yes, but roosters are prohibited citywide”*
 
 ### Slide 5/14 — Story 2 — A food vendor
 
@@ -59,12 +57,9 @@ https://nanda-municipal-laws.vercel.app
 
 **Question:** “What permit do I need to operate a mobile food cart?”
 
-1. User asks the agent a plain-language question
-2. Agent calls POST /permits {"query": "mobile food vending unit license permit"}
-3. Evidence returned: §89.11 “Applications for permits and licenses”
-4. Agent answers: “You need a vending permit/license under §89.11 — fees are set by §17-308”
+Food vendor → Agent → POST /permits → **§89.11 Applications for permits and licenses**
 
-**Returned citation: NYC Health Code §89.11**
+*“You need a vending permit/license under §89.11 — fees are set by §17-308”*
 
 ### Slide 6/14 — Story 3 — A building owner
 
@@ -72,12 +67,9 @@ https://nanda-municipal-laws.vercel.app
 
 **Question:** “What's the penalty if I dump construction debris illegally?”
 
-1. User asks the agent a plain-language question
-2. Agent calls POST /penalties → GET /sections/16-119
-3. Evidence returned: §16-119 “Dumping prohibited” — misdemeanor, vehicle impoundment
-4. Agent answers with real dollar figures, straight from the statute
+Building owner → Agent → POST /penalties → GET /sections/16-119 → **$1,500 – $10,000 civil penalty**
 
-**Returned directly from statute: $1,500 – $10,000 civil penalty**
+*Real dollar figures, straight from the statute — not a vague “consult a lawyer.”*
 
 ---
 
@@ -100,11 +92,13 @@ Official NYC sources → Crawler → Normalization → MongoDB → FastAPI Skill
 
 *668 source documents · 10,702 searchable chunks · ≈55 MB total*
 
+**Not a curated demo dataset.**
+
 ---
 
 ## Engineering & why not an LLM
 
-### Slide 9/14 — Engineering: bugs found and fixed, not just claimed
+### Slide 9/14 — Production issues discovered using live municipal data
 
 *kind: `bullets`*
 
@@ -118,9 +112,9 @@ Official NYC sources → Crawler → Normalization → MongoDB → FastAPI Skill
 *kind: `comparison`*
 
 **LLM memory**
-- ✗ May hallucinate
+- ✗ May be incomplete
 - ✗ May be outdated
-- ✗ No provenance
+- ✗ Cannot prove provenance
 
 **Municipal Law Skill**
 - ✓ Official source
@@ -150,9 +144,11 @@ Official NYC sources → Crawler → Normalization → MongoDB → FastAPI Skill
 
 *kind: `diagram`*
 
+**Every response is cryptographically signed (Ed25519).**
+
 Signed → Verifiable → Deterministic → Replayable
 
-*Every /is_action_allowed and /search response is Ed25519-signed — /pubkey lets any downstream agent verify offline that this service, not a relay or a cache, produced a citation. /version reports corpus freshness, so callers know exactly how stale the law is.*
+*/pubkey lets any downstream agent verify offline that this service, not a relay or a cache, produced a citation. /version reports corpus freshness, so callers know exactly how stale the law is.*
 
 ---
 
@@ -167,13 +163,15 @@ Signed → Verifiable → Deterministic → Replayable
 - Composable by design — the last hop in a chain started by another skill (a 311 complaint, a permit application, a code-enforcement lead)
 - Any agent that can call an HTTP endpoint can invoke it, per SKILL.md
 
+**Any agent. Any language. Any framework. Just HTTP.**
+
 ### Slide 14/14 — Agent-ready. Deterministic. Citation-backed.
 
 *kind: `closing`*
 
-- Complete NYC corpus
-- No hallucinations
-- Live today
+- ✓ Complete NYC Administrative & Health Codes
+- ✓ Deterministic, citation-backed legal evidence
+- ✓ Live, agent-ready HTTP skill
 
 **https://nanda-municipal-laws.vercel.app**  
 https://github.com/swamx/nanda-municipal-laws

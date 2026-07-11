@@ -130,7 +130,7 @@ def render_bullets(slide, s, index, total):
 def render_quote(slide, s, index, total):
     _title_bar(slide, s["title"])
     # quote panel
-    panel = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Inches(1.9), Inches(11.3), Inches(1.6))
+    panel = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Inches(1.9), Inches(11.3), Inches(1.4))
     panel.fill.solid()
     panel.fill.fore_color.rgb = PANEL
     panel.line.color.rgb = ACCENT
@@ -142,17 +142,57 @@ def render_quote(slide, s, index, total):
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
     p = tf.paragraphs[0]
     r = p.add_run()
-    _set_run(r, "“" + s["quote"].strip("“”") + "”", 20, ACCENT_2, italic=True, bold=True)
+    _set_run(r, "“" + s["quote"].strip("“”") + "”", 18, ACCENT_2, italic=True, bold=True)
 
-    box, tf2 = _textbox(slide, Inches(1), Inches(3.9), Inches(11.3), Inches(1.6))
-    for i, b in enumerate(s["bullets"]):
-        p = tf2.paragraphs[0] if i == 0 else tf2.add_paragraph()
-        p.space_after = Pt(14)
-        r = p.add_run()
-        _set_run(r, "▸  " + b, 18, TEXT)
+    top = Inches(3.5)
+    if s.get("flows"):
+        for flow in s["flows"]:
+            label_box, ltf = _textbox(slide, Inches(1), top, Inches(11.3), Inches(0.3))
+            lp = ltf.paragraphs[0]
+            lr = lp.add_run()
+            _set_run(lr, flow["label"], 13, MUTED, bold=True)
+            top = Emu(top + Inches(0.32))
+
+            steps = flow["steps"]
+            n = len(steps)
+            box_w = Inches(11.3 / n * 0.82)
+            gap = Inches(11.3 / n * 0.18)
+            left = Inches(1)
+            box_h = Inches(0.55)
+            muted = flow.get("muted")
+            for i, step in enumerate(steps):
+                shp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, box_w, box_h)
+                shp.fill.solid()
+                shp.fill.fore_color.rgb = PANEL
+                shp.line.color.rgb = BORDER if muted else ACCENT_2
+                shp.line.width = Pt(1)
+                stf = shp.text_frame
+                stf.word_wrap = True
+                stf.vertical_anchor = MSO_ANCHOR.MIDDLE
+                sp = stf.paragraphs[0]
+                sp.alignment = PP_ALIGN.CENTER
+                sr = sp.add_run()
+                _set_run(sr, step, 10, MUTED if muted else ACCENT_2, bold=not muted)
+                if i < n - 1:
+                    arrow_left = Emu(left + box_w)
+                    arrow, atf = _textbox(slide, arrow_left, top, gap, box_h, MSO_ANCHOR.MIDDLE)
+                    ap = atf.paragraphs[0]
+                    ap.alignment = PP_ALIGN.CENTER
+                    ar = ap.add_run()
+                    _set_run(ar, "→", 14, MUTED)
+                left = Emu(left + box_w + gap)
+            top = Emu(top + box_h + Inches(0.15))
+    else:
+        box, tf2 = _textbox(slide, Inches(1), top, Inches(11.3), Inches(1.6))
+        for i, b in enumerate(s.get("bullets", [])):
+            p2 = tf2.paragraphs[0] if i == 0 else tf2.add_paragraph()
+            p2.space_after = Pt(14)
+            r2 = p2.add_run()
+            _set_run(r2, "▸  " + b, 18, TEXT)
+        top = Emu(top + Inches(1.6))
 
     if s.get("emphasis"):
-        emp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Inches(5.3), Inches(11.3), Inches(0.9))
+        emp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Emu(top + Inches(0.1)), Inches(11.3), Inches(0.9))
         emp.fill.solid()
         emp.fill.fore_color.rgb = ACCENT
         emp.line.fill.background()
@@ -280,12 +320,21 @@ def render_comparison(slide, s, index, total):
 
 def render_diagram(slide, s, index, total):
     _title_bar(slide, s["title"])
+    if s.get("lead"):
+        lead_box, ltf = _textbox(slide, Inches(1), Inches(1.75), Inches(11.3), Inches(0.6))
+        lp = ltf.paragraphs[0]
+        lp.alignment = PP_ALIGN.CENTER
+        lr = lp.add_run()
+        _set_run(lr, s["lead"], 20, ACCENT_2, bold=True)
+        diagram_top = 2.9
+    else:
+        diagram_top = 2.6
     steps = s["diagram"]
     n = len(steps)
     box_w = Inches(11.3 / n * 0.82)
     gap = Inches(11.3 / n * 0.18)
     left = Inches(1)
-    top = Inches(2.6)
+    top = Inches(diagram_top)
     for i, step in enumerate(steps):
         shp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, box_w, Inches(1.1))
         shp.fill.solid()
@@ -301,14 +350,14 @@ def render_diagram(slide, s, index, total):
         _set_run(r, step, 12, TEXT, bold=(i in (0, n - 1)))
         if i < n - 1:
             arrow_left = Emu(left + box_w)
-            arrow, atf = _textbox(slide, arrow_left, Inches(2.85), gap, Inches(0.6), MSO_ANCHOR.MIDDLE)
+            arrow, atf = _textbox(slide, arrow_left, Emu(top + Inches(0.25)), gap, Inches(0.6), MSO_ANCHOR.MIDDLE)
             ap = atf.paragraphs[0]
             ap.alignment = PP_ALIGN.CENTER
             ar = ap.add_run()
             _set_run(ar, "→", 22, ACCENT, bold=True)
         left = Emu(left + box_w + gap)
 
-    box2, tf2 = _textbox(slide, Inches(1), Inches(4.3), Inches(11.3), Inches(1.2), MSO_ANCHOR.MIDDLE)
+    box2, tf2 = _textbox(slide, Inches(1), Emu(top + Inches(1.7)), Inches(11.3), Inches(1.2), MSO_ANCHOR.MIDDLE)
     p2 = tf2.paragraphs[0]
     p2.alignment = PP_ALIGN.CENTER
     r2 = p2.add_run()
@@ -348,11 +397,19 @@ def render_stats(slide, s, index, total):
             _set_run(r3, label, 14, TEXT)
         left = Emu(left + col_w + Inches(0.3))
 
-    box, tf2 = _textbox(slide, Inches(1), Inches(5.2), Inches(11.3), Inches(0.8), MSO_ANCHOR.MIDDLE)
+    box, tf2 = _textbox(slide, Inches(1), Inches(5.2), Inches(11.3), Inches(0.6), MSO_ANCHOR.MIDDLE)
     p = tf2.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
     r = p.add_run()
     _set_run(r, s["footnote"], 16, ACCENT_2, italic=True)
+
+    if s.get("callout"):
+        box_c, tf_c = _textbox(slide, Inches(1), Inches(5.85), Inches(11.3), Inches(0.6), MSO_ANCHOR.MIDDLE)
+        pc = tf_c.paragraphs[0]
+        pc.alignment = PP_ALIGN.CENTER
+        rc = pc.add_run()
+        _set_run(rc, s["callout"], 18, TEXT, bold=True)
+
     _footer(slide, index, total)
 
 
@@ -396,7 +453,7 @@ def render_capability_table(slide, s, index, total):
         box, tf2 = _textbox(slide, Inches(0.7), Emu(top + Inches(3.9)), Inches(12.0), Inches(0.8))
         p2 = tf2.paragraphs[0]
         r2 = p2.add_run()
-        _set_run(r2, s["admin_note"], 13, MUTED, italic=True)
+        _set_run(r2, s["admin_note"], 10, MUTED, italic=True)
 
     _footer(slide, index, total)
 
@@ -408,39 +465,45 @@ def render_story(slide, s, index, total):
     r = p.add_run()
     _set_run(r, s["question"], 22, ACCENT_2, italic=True, bold=True)
 
-    n_steps = len(s["steps"])
-    step_h = Inches(0.85)
-    top = Inches(2.6)
-    for i, step in enumerate(s["steps"]):
-        panel = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), top, Inches(11.3), step_h)
-        panel.fill.solid()
-        panel.fill.fore_color.rgb = PANEL
-        panel.line.color.rgb = ACCENT if i == n_steps - 1 else BORDER
-        tf2 = panel.text_frame
+    flow = s["flow"]
+    citation_index = s.get("citation_index")
+    n = len(flow)
+    box_w = Inches(11.3 / n * 0.82)
+    gap = Inches(11.3 / n * 0.18)
+    left = Inches(1)
+    top = Inches(2.9)
+    box_h = Inches(1.3)
+    for i, step in enumerate(flow):
+        is_cit = i == citation_index
+        shp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, box_w, box_h)
+        shp.fill.solid()
+        shp.fill.fore_color.rgb = PANEL
+        shp.line.color.rgb = ACCENT_2 if is_cit else BORDER
+        shp.line.width = Pt(2 if is_cit else 1.25)
+        tf2 = shp.text_frame
         tf2.word_wrap = True
         tf2.vertical_anchor = MSO_ANCHOR.MIDDLE
-        tf2.margin_left = Inches(0.25)
+        tf2.margin_left = Inches(0.1)
+        tf2.margin_right = Inches(0.1)
         p2 = tf2.paragraphs[0]
+        p2.alignment = PP_ALIGN.CENTER
         r2 = p2.add_run()
-        _set_run(r2, f"{i + 1}.  {step}", 15, TEXT, bold=(i == n_steps - 1))
-        top = Emu(top + step_h + Pt(6))
+        _set_run(r2, step, 13 if is_cit else 12, ACCENT_2 if is_cit else TEXT, bold=is_cit)
+        if i < n - 1:
+            arrow_left = Emu(left + box_w)
+            arrow, atf = _textbox(slide, arrow_left, top, gap, box_h, MSO_ANCHOR.MIDDLE)
+            ap = atf.paragraphs[0]
+            ap.alignment = PP_ALIGN.CENTER
+            ar = ap.add_run()
+            _set_run(ar, "→", 20, ACCENT, bold=True)
+        left = Emu(left + box_w + gap)
 
-    if s.get("citation"):
-        cit = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1), Emu(top + Inches(0.1)), Inches(11.3), Inches(1.0))
-        cit.fill.solid()
-        cit.fill.fore_color.rgb = PANEL
-        cit.line.color.rgb = ACCENT_2
-        cit.line.width = Pt(2)
-        ctf = cit.text_frame
-        ctf.vertical_anchor = MSO_ANCHOR.MIDDLE
-        cp = ctf.paragraphs[0]
-        cp.alignment = PP_ALIGN.CENTER
-        cr = cp.add_run()
-        _set_run(cr, s["citation"]["label"], 12, MUTED)
-        cp2 = ctf.add_paragraph()
-        cp2.alignment = PP_ALIGN.CENTER
-        cr2 = cp2.add_run()
-        _set_run(cr2, s["citation"]["value"], 24, ACCENT_2, bold=True)
+    if s.get("answer"):
+        box3, tf3 = _textbox(slide, Inches(1.2), Emu(top + box_h + Inches(0.3)), Inches(10.9), Inches(1.0), MSO_ANCHOR.MIDDLE)
+        p3 = tf3.paragraphs[0]
+        p3.alignment = PP_ALIGN.CENTER
+        r3 = p3.add_run()
+        _set_run(r3, s["answer"], 17, TEXT, italic=True)
 
     _footer(slide, index, total)
 
